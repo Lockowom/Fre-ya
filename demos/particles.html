@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Particle Sphere · Fre-ya</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@300;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    .p-stage { background: radial-gradient(circle at 50% 50%, #0a1230, #04060d); }
+    #three-canvas { width: 100%; height: 100%; display: block; }
+    .follow-ui {
+      position: absolute;
+      bottom: 14px; left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 8px 16px;
+      background: rgba(10, 16, 32, 0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+    .follow-ui span { font-size: 0.85rem; color: var(--ink-dim); }
+    .follow-btn {
+      border: none;
+      cursor: pointer;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 0.82rem;
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-2), #6a8bff);
+      transition: transform 0.15s, filter 0.2s;
+    }
+    .follow-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+    .follow-btn.on { background: linear-gradient(90deg, var(--accent), #ff7eb3); }
+  </style>
+</head>
+<body class="demo">
+  <canvas id="demo-bg" class="demo-bg" aria-hidden="true"></canvas>
+
+  <nav class="demo-nav">
+    <a class="back" href="../index.html">← Fre-ya</a>
+    <span class="back">particles.js</span>
+  </nav>
+
+  <h1 class="demo-title">Particle Sphere</h1>
+
+  <div class="stage p-stage" id="stage">
+    <canvas id="three-canvas"></canvas>
+    <div class="follow-ui">
+      <span id="status">Auto&nbsp;rotación</span>
+      <button class="follow-btn" id="follow">Follow</button>
+    </div>
+  </div>
+
+  <div class="code-window">
+    <div class="code-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="code-file">particles.js</span>
+    </div>
+    <pre><code><span class="ln"><span class="k">function</span> <span class="f">createParticles</span>() {</span><span class="ln">  <span class="k">const</span> geometry = <span class="k">new</span> THREE.<span class="f">BufferGeometry</span>();</span><span class="ln">  <span class="k">const</span> positions = <span class="k">new</span> <span class="f">Float32Array</span>(count * <span class="n">3</span>);</span><span class="ln">  <span class="k">const</span> colors = <span class="k">new</span> <span class="f">Float32Array</span>(count * <span class="n">3</span>);</span><span class="ln"></span><span class="ln">  <span class="k">function</span> <span class="f">sphericalDistribution</span>(i) {</span><span class="ln">    <span class="k">const</span> phi = Math.<span class="f">acos</span>(-<span class="n">1</span> + (<span class="n">2</span> * i) / count);</span><span class="ln">    <span class="k">const</span> theta = Math.<span class="f">sqrt</span>(count * Math.PI) * phi;</span><span class="ln"></span><span class="ln">    <span class="k">return</span> {</span><span class="ln">      x: <span class="n">8</span> * Math.<span class="f">cos</span>(theta) * Math.<span class="f">sin</span>(phi),</span><span class="ln">      y: <span class="n">8</span> * Math.<span class="f">sin</span>(theta) * Math.<span class="f">sin</span>(phi),</span><span class="ln">      z: <span class="n">8</span> * Math.<span class="f">cos</span>(phi)</span><span class="ln">    };</span><span class="ln">  }</span><span class="ln">}</span></code></pre>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="../assets/js/bg.js"></script>
+  <script src="../assets/js/particles.js"></script>
+</body>
+</html>

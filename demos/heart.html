@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Te Amo · Fre-ya</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@300;500;700;800&family=Dancing+Script:wght@700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    .heart-stage { display: grid; place-items: center; }
+    .heart-svg {
+      width: 58%;
+      overflow: visible;
+      filter: drop-shadow(0 0 14px var(--accent));
+    }
+    .heart-path {
+      fill: none;
+      stroke: url(#hgrad);
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 1500;
+      stroke-dashoffset: 1500;
+      animation: draw 3s ease forwards, beat 1.3s ease-in-out 3s infinite;
+      transform-origin: center;
+    }
+    .heart-fill {
+      fill: var(--accent);
+      opacity: 0;
+      transform-origin: center;
+      animation: fillin 1.2s ease 2.6s forwards, beat 1.3s ease-in-out 3s infinite;
+    }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    @keyframes fillin { to { opacity: 0.85; } }
+    .love-text {
+      position: absolute;
+      bottom: 12%;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      font-family: "Dancing Script", cursive;
+      font-size: clamp(1.8rem, 7vw, 3.2rem);
+      color: #fff;
+      text-shadow: 0 0 18px var(--accent), 0 0 40px var(--accent);
+      opacity: 0;
+      animation: rise 1.4s ease 3.4s forwards;
+    }
+    @keyframes rise { to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    .spark {
+      position: absolute;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: float 4s ease-in-out infinite;
+      opacity: 0;
+    }
+    @keyframes float {
+      0% { transform: translateY(0) scale(0.4); opacity: 0; }
+      20% { opacity: 1; }
+      100% { transform: translateY(-160px) scale(1); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="demo">
+  <canvas id="demo-bg" class="demo-bg" aria-hidden="true"></canvas>
+
+  <nav class="demo-nav">
+    <a class="back" href="../index.html">← Fre-ya</a>
+    <span class="back">heart.css</span>
+  </nav>
+
+  <h1 class="demo-title">POV: estás enamorado</h1>
+
+  <div class="stage heart-stage" id="stage">
+    <svg class="heart-svg" viewBox="0 0 120 110" id="heart">
+      <defs>
+        <linearGradient id="hgrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#ff2d9b" />
+          <stop offset="100%" stop-color="#ff7eb3" />
+        </linearGradient>
+      </defs>
+      <path class="heart-fill"
+        d="M60 100 C20 70 5 45 5 28 C5 12 18 4 32 4 C45 4 55 14 60 24 C65 14 75 4 88 4 C102 4 115 12 115 28 C115 45 100 70 60 100 Z" />
+      <path class="heart-path"
+        d="M60 100 C20 70 5 45 5 28 C5 12 18 4 32 4 C45 4 55 14 60 24 C65 14 75 4 88 4 C102 4 115 12 115 28 C115 45 100 70 60 100 Z" />
+    </svg>
+    <span class="love-text">Te Amo</span>
+  </div>
+
+  <div class="code-window">
+    <div class="code-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="code-file">heart.css</span>
+    </div>
+    <pre><code><span class="ln"><span class="f">.Heart__Love</span> {</span><span class="ln">  <span class="p">background</span>: <span class="k">black</span>;</span><span class="ln">  <span class="p">color</span>: <span class="n">#fff</span>;</span><span class="ln">  <span class="p">font-family</span>: <span class="s">"Te Amo"</span>;</span><span class="ln">  <span class="p">font-size</span>: <span class="n">3em</span>;</span><span class="ln">  <span class="p">text-align</span>: <span class="k">center</span>;</span><span class="ln">  <span class="p">stroke-dasharray</span>: <span class="n">1500</span>;</span><span class="ln">  <span class="p">animation</span>: <span class="f">draw</span> <span class="n">3s</span> ease forwards;</span><span class="ln">}</span><span class="ln"></span><span class="ln"><span class="k">@keyframes</span> <span class="f">draw</span> {</span><span class="ln">  <span class="k">to</span> { <span class="p">stroke-dashoffset</span>: <span class="n">0</span>; }</span><span class="ln">}</span></code></pre>
+  </div>
+
+  <script src="../assets/js/bg.js"></script>
+  <script>
+    // Floating sparks around the heart.
+    const stage = document.getElementById("stage");
+    function spawnSpark() {
+      const s = document.createElement("span");
+      s.className = "spark";
+      s.style.left = 30 + Math.random() * 40 + "%";
+      s.style.bottom = 20 + Math.random() * 30 + "%";
+      s.style.animationDuration = 3 + Math.random() * 3 + "s";
+      stage.appendChild(s);
+      setTimeout(() => s.remove(), 6000);
+    }
+    setInterval(spawnSpark, 320);
+  </script>
+</body>
+</html>

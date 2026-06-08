@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fre-ya · Creative Dev</title>
+  <meta name="description" content="Fre-ya — laboratorio de experimentos creativos en HTML, CSS y JavaScript." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@300;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/main.css" />
+</head>
+<body class="landing">
+  <canvas id="code-rain" aria-hidden="true"></canvas>
+
+  <header class="topbar">
+    <a class="brand" href="index.html">Fre&#8209;ya<span class="brand-dot">.</span></a>
+    <nav class="tabs" aria-label="Lenguajes">
+      <a class="tab" href="#demos" data-lang="html">Html</a>
+      <a class="tab" href="#demos" data-lang="css">Css</a>
+      <a class="tab" href="#demos" data-lang="js">Js</a>
+    </nav>
+  </header>
+
+  <main class="hero">
+    <p class="hero-kicker">CREATIVE&nbsp;CODE&nbsp;LAB</p>
+    <h1 class="hero-title">Pequeñas piezas de<br /><span class="grad">magia en el navegador</span></h1>
+    <p class="hero-sub">Tres experimentos. CSS, GSAP y Three.js. Cada uno con su código a la vista.</p>
+    <a class="cta" href="#demos">Ver experimentos ↓</a>
+  </main>
+
+  <section id="demos" class="demos">
+    <h2 class="section-title">Experimentos</h2>
+    <div class="grid">
+      <a class="card card--heart" href="demos/heart.html">
+        <div class="card-art" aria-hidden="true">
+          <span class="mini-heart">♥</span>
+        </div>
+        <div class="card-body">
+          <span class="card-tag">CSS · SVG</span>
+          <h3>Te Amo</h3>
+          <p>Un corazón que se dibuja solo, late y brilla en la oscuridad.</p>
+        </div>
+      </a>
+
+      <a class="card card--dark" href="demos/darkness.html">
+        <div class="card-art card-art--dark" aria-hidden="true">
+          <span class="four">404</span>
+        </div>
+        <div class="card-body">
+          <span class="card-tag">GSAP · Spotlight</span>
+          <h3>You hate darkness</h3>
+          <p>Una página 404 a oscuras. Mueve la linterna para encontrar la salida.</p>
+        </div>
+      </a>
+
+      <a class="card card--particles" href="demos/particles.html">
+        <div class="card-art card-art--particles" aria-hidden="true">
+          <span class="dots"></span>
+        </div>
+        <div class="card-body">
+          <span class="card-tag">Three.js · WebGL</span>
+          <h3>Particle Sphere</h3>
+          <p>Diez mil partículas en una esfera que reacciona a tu cursor.</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>Fre-ya © 2026</span>
+    <span class="foot-dim">Hecho con HTML, CSS &amp; JavaScript</span>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

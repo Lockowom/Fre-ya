@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You hate darkness · Fre-ya</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@300;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    .dark-stage { background: #060d18; cursor: none; }
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(160deg, #0c2747, #05101f);
+    }
+    .scene-404 {
+      font-family: var(--mono);
+      font-size: clamp(5rem, 22vw, 11rem);
+      font-weight: 700;
+      color: #6fa8dc;
+      text-shadow: 0 0 40px rgba(111, 168, 220, 0.6);
+      letter-spacing: 0.05em;
+      user-select: none;
+    }
+    .scene-msg {
+      position: absolute;
+      bottom: 14%;
+      width: 80%;
+      text-align: center;
+    }
+    .scene-msg h2 { margin: 0 0 6px; font-size: clamp(1rem, 4vw, 1.6rem); color: #cfe3ff; }
+    .scene-msg p { margin: 0; font-size: 0.85rem; color: #8fb0d6; font-weight: 300; }
+    /* The mask layer that hides the scene in darkness. */
+    .veil {
+      position: absolute;
+      inset: 0;
+      background: #02060d;
+      -webkit-mask-image: radial-gradient(circle var(--r, 0px) at var(--x, 50%) var(--y, 50%), transparent 0%, transparent 60%, #000 100%);
+      mask-image: radial-gradient(circle var(--r, 0px) at var(--x, 50%) var(--y, 50%), transparent 0%, transparent 60%, #000 100%);
+      transition: -webkit-mask-image 0.05s linear;
+    }
+    .torch-hint {
+      position: absolute;
+      top: 12px; left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: #6f86a8;
+      z-index: 4;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="demo">
+  <canvas id="demo-bg" class="demo-bg" aria-hidden="true"></canvas>
+
+  <nav class="demo-nav">
+    <a class="back" href="../index.html">← Fre-ya</a>
+    <span class="back">darkness.js</span>
+  </nav>
+
+  <h1 class="demo-title">POV: You hate darkness</h1>
+
+  <div class="stage dark-stage" id="stage">
+    <div class="scene">
+      <span class="scene-404">404</span>
+      <div class="scene-msg">
+        <h2>¿Hay alguien ahí?</h2>
+        <p>Sabemos que da miedo, pero la página que buscas no existe.</p>
+      </div>
+    </div>
+    <div class="veil" id="veil"></div>
+    <span class="torch-hint">mueve el cursor / toca para alumbrar</span>
+  </div>
+
+  <div class="code-window">
+    <div class="code-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="code-file">darkness.js</span>
+    </div>
+    <pre><code><span class="ln"><span class="k">function</span> <span class="f">goDark</span>() {</span><span class="ln">  gsap.set(<span class="s">"#light"</span>, { <span class="p">visibility</span>: <span class="s">"hidden"</span> });</span><span class="ln">  gsap.set(<span class="s">".veil"</span>, { <span class="p">"--r"</span>: <span class="s">"0px"</span> });</span><span class="ln">  gsap.to(<span class="s">".scene"</span>, { <span class="p">opacity</span>: <span class="n">0.05</span> });</span><span class="ln">}</span><span class="ln"></span><span class="ln"><span class="k">function</span> <span class="f">goLight</span>(x, y) {</span><span class="ln">  gsap.set(<span class="s">".veil"</span>, { <span class="p">"--x"</span>: x, <span class="p">"--y"</span>: y });</span><span class="ln">  gsap.to(<span class="s">".veil"</span>, { <span class="p">"--r"</span>: <span class="s">"160px"</span>, <span class="p">duration</span>: <span class="n">0.2</span> });</span><span class="ln">  gsap.to(<span class="s">".scene"</span>, { <span class="p">opacity</span>: <span class="n">1</span> });</span><span class="ln">}</span></code></pre>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="../assets/js/bg.js"></script>
+  <script src="../assets/js/darkness.js"></script>
+</body>
+</html>
