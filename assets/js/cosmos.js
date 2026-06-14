@@ -9,7 +9,9 @@
 // =====================================================================
 (() => {
   const canvas = document.getElementById("cosmos");
-  if (!canvas || !window.THREE) return;
+  if (!canvas) return;
+  if (!window.THREE) { console.warn("[cosmos] THREE no cargó: se muestra el fondo 2D."); return; }
+  console.log("[cosmos] THREE", THREE.REVISION, "— iniciando universo 3D");
 
   let renderer;
   try {
