@@ -644,7 +644,7 @@
     if (!window.WebAssembly) return;
     const coarse = (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || window.innerWidth < 820;
     const count = coarse ? 7000 : 14000;
-    fetch("assets/wasm/particles.wasm")
+    fetch("assets/wasm/particles.wasm?v=3")
       .then((r) => r.arrayBuffer())
       .then((b) => WebAssembly.instantiate(b, {}))
       .then(({ instance }) => {
