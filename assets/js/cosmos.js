@@ -1,11 +1,11 @@
 // =====================================================================
 //  Cosmos 3D inmersivo para Tamara — Three.js (r128, THREE global) + GLSL.
-//  Cada planeta usa un shader procedural (relieve por fbm, atmósfera con
-//  fresnel). Sol con turbulencia, campo de estrellas, nebulosas y
-//  estrellas fugaces. Cámara con auto-órbita y parallax al tacto/ratón.
+//  Versión detallista: planetas con nubes, casquetes polares, luces
+//  nocturnas, especular y atmósfera; lunas, cinturón de asteroides,
+//  corona y fulguraciones solares, galaxia espiral, cometa con cola y
+//  estrellas que titilan. Cámara con auto-órbita + parallax.
 //
-//  Degrada con elegancia: si WebGL/THREE no están, no hace nada y queda
-//  el fondo 2D de corazones.
+//  Degrada con elegancia: si WebGL/THREE no están, queda el fondo 2D.
 // =====================================================================
 (() => {
   const canvas = document.getElementById("cosmos");
@@ -14,18 +14,30 @@
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  } catch (e) {
-    return; // sin WebGL
-  }
+  } catch (e) { return; }
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(DPR);
-  renderer.setClearColor(0x000000, 0); // transparente: usamos el degradado del body
+  renderer.setClearColor(0x000000, 0);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 2000);
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 4000);
   camera.position.set(0, 6, 46);
 
-  // -------- ruido GLSL compartido (hash + fbm de 3 octavas) ----------
+  // ---------- texturas radiales utilitarias ----------
+  function radialTexture(stops, size = 256) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const ctx = c.getContext("2d");
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    stops.forEach(([o, col]) => g.addColorStop(o, col));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    const t = new THREE.Texture(c);
+    t.needsUpdate = true;
+    return t;
+  }
+
+  // ---------- ruido GLSL (hash + fbm) ----------
   const NOISE = `
     vec3 hash3(vec3 p){
       p = vec3(dot(p,vec3(127.1,311.7,74.7)),
@@ -45,63 +57,56 @@
                      mix(dot(hash3(i+vec3(0,1,1)),f-vec3(0,1,1)),
                          dot(hash3(i+vec3(1,1,1)),f-vec3(1,1,1)),u.x),u.y),u.z);
     }
-    float fbm(vec3 p){
-      float v = 0.0, a = 0.5;
-      for(int i=0;i<5;i++){ v += a*noise(p); p *= 2.02; a *= 0.5; }
-      return v;
-    }
+    float fbm(vec3 p){ float v=0.0,a=0.5; for(int i=0;i<6;i++){ v+=a*noise(p); p*=2.03; a*=0.5; } return v; }
+    float ridged(vec3 p){ float v=0.0,a=0.5; for(int i=0;i<5;i++){ v+=a*(1.0-abs(noise(p))); p*=2.05; a*=0.5; } return v; }
   `;
 
-  // =============== SOL ===============
+  // ===================== SOL =====================
   const sunUniforms = { uTime: { value: 0 } };
   const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(4.2, 64, 64),
+    new THREE.SphereGeometry(4.2, 96, 96),
     new THREE.ShaderMaterial({
       uniforms: sunUniforms,
-      vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      vertexShader: `varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
       fragmentShader: NOISE + `
         uniform float uTime; varying vec3 vP;
         void main(){
           vec3 p = normalize(vP);
-          float n = fbm(p*3.0 + vec3(uTime*0.25));
-          float n2 = fbm(p*6.0 - vec3(uTime*0.15));
-          float h = n*0.6 + n2*0.4;
-          vec3 hot = vec3(1.0,0.95,0.7);
-          vec3 mid = vec3(1.0,0.55,0.2);
-          vec3 low = vec3(0.9,0.2,0.25);
-          vec3 col = mix(low, mid, smoothstep(0.1,0.5,h));
-          col = mix(col, hot, smoothstep(0.5,0.85,h));
-          gl_FragColor = vec4(col*1.4, 1.0);
+          float gran = fbm(p*7.0 + vec3(uTime*0.3));
+          float cells = ridged(p*4.0 - vec3(uTime*0.18));
+          float h = gran*0.5 + cells*0.5;
+          vec3 hot=vec3(1.0,0.96,0.78), mid=vec3(1.0,0.55,0.18), low=vec3(0.85,0.15,0.22);
+          vec3 col = mix(low, mid, smoothstep(0.15,0.5,h));
+          col = mix(col, hot, smoothstep(0.5,0.9,h));
+          // manchas solares
+          float spot = smoothstep(0.62,0.5, fbm(p*5.0+10.0));
+          col *= mix(1.0, 0.55, spot);
+          gl_FragColor = vec4(col*1.45, 1.0);
         }`,
     })
   );
   scene.add(sun);
 
-  // Glow del sol (sprite radial aditivo)
-  function radialTexture(stops) {
-    const c = document.createElement("canvas");
-    c.width = c.height = 256;
-    const g = c.getContext("2d").createRadialGradient(128, 128, 0, 128, 128, 128);
-    stops.forEach(([o, col]) => g.addColorStop(o, col));
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 256, 256);
-    const t = new THREE.Texture(c);
-    t.needsUpdate = true;
-    return t;
-  }
-  const sunGlow = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: radialTexture([[0, "rgba(255,220,150,0.9)"], [0.25, "rgba(255,140,60,0.5)"], [1, "rgba(255,80,80,0)"]]),
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      transparent: true,
-    })
-  );
-  sunGlow.scale.set(26, 26, 1);
-  scene.add(sunGlow);
+  // corona + halo
+  const corona = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture([[0, "rgba(255,225,160,0.85)"], [0.22, "rgba(255,150,70,0.5)"], [0.5, "rgba(255,90,80,0.18)"], [1, "rgba(255,80,80,0)"]]),
+    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  }));
+  corona.scale.set(30, 30, 1);
+  scene.add(corona);
 
-  // =============== PLANETAS ===============
+  // fulguraciones (flares) que laten cerca de la superficie
+  const flareTex = radialTexture([[0, "rgba(255,230,180,0.9)"], [0.5, "rgba(255,140,60,0.4)"], [1, "rgba(255,120,60,0)"]]);
+  const flares = [];
+  for (let i = 0; i < 4; i++) {
+    const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    const a = Math.random() * Math.PI * 2, el = (Math.random() - 0.5) * 1.2;
+    fl.userData = { a, el, ph: Math.random() * Math.PI * 2, base: 5 + Math.random() * 3 };
+    scene.add(fl);
+    flares.push(fl);
+  }
+
+  // ===================== PLANETAS =====================
   const planetVert = `
     varying vec3 vWN; varying vec3 vP; varying vec3 vWP;
     void main(){
@@ -111,51 +116,93 @@
       vWP = wp.xyz;
       gl_Position = projectionMatrix * viewMatrix * wp;
     }`;
+
   const planetFrag = NOISE + `
     uniform vec3 uA; uniform vec3 uB; uniform vec3 uC;
-    uniform vec3 uLight; uniform float uTime; uniform float uSeed; uniform float uBands;
+    uniform float uTime; uniform float uSeed; uniform float uBands;
+    uniform float uNight; uniform float uIce;
     varying vec3 vWN; varying vec3 vP; varying vec3 vWP;
     void main(){
       vec3 p = normalize(vP);
-      float n = fbm(p*2.5 + uSeed);
-      // bandas tipo gaseoso si uBands>0.5, si no, continentes
-      float band = uBands>0.5 ? fbm(vec3(p.y*6.0, uTime*0.02, uSeed)) : fbm(p*4.0 + n + uSeed);
+      float n = fbm(p*2.6 + uSeed);
+      float detail = ridged(p*7.0 + uSeed);
+      float band = uBands>0.5 ? fbm(vec3(p.y*7.0, uTime*0.03, uSeed)) : fbm(p*4.5 + n + uSeed);
       vec3 col = mix(uA, uB, smoothstep(0.25,0.65,n));
       col = mix(col, uC, clamp(band*0.6,0.0,1.0));
+      col *= 0.85 + 0.3*detail;
+      // tormentas en gigantes gaseosos
+      if(uBands>0.5){
+        float storm = smoothstep(0.78,0.9, fbm(p*5.0+uSeed*2.0));
+        col = mix(col, vec3(0.9,0.4,0.3), storm*0.6);
+      }
+      // casquetes polares
+      if(uIce>0.5){
+        float lat = abs(p.y);
+        float ice = smoothstep(0.70,0.86, lat + fbm(p*6.0)*0.06);
+        col = mix(col, vec3(0.95,0.98,1.0), ice);
+      }
       vec3 N = normalize(vWN);
-      vec3 L = normalize(uLight - vWP);
+      vec3 L = normalize(-vWP);                 // el sol está en el origen
+      vec3 V = normalize(cameraPosition - vWP);
+      vec3 H = normalize(L + V);
       float diff = clamp(dot(N,L),0.0,1.0);
-      float terminator = smoothstep(0.0,0.25,diff);
-      vec3 lit = col*(0.06 + diff) + vec3(1.0,0.5,0.3)*pow(1.0-terminator,3.0)*0.15;
+      float spec = (uBands>0.5?0.0:1.0) * pow(max(dot(N,H),0.0), 28.0) * diff * 0.5;
+      float term = smoothstep(0.0,0.3,diff);
+      vec3 lit = col*(0.05 + diff) + vec3(1.0)*spec + vec3(1.0,0.5,0.3)*pow(1.0-term,3.0)*0.18;
+      // luces nocturnas (ciudades)
+      if(uNight>0.5){
+        float dark = smoothstep(0.18,0.0,diff);
+        float city = smoothstep(0.58,0.74, fbm(p*10.0+uSeed*1.7));
+        lit += vec3(1.0,0.82,0.45)*city*dark*0.9;
+      }
       gl_FragColor = vec4(lit,1.0);
+    }`;
+
+  const cloudFrag = NOISE + `
+    uniform float uTime; uniform float uSeed; varying vec3 vWN; varying vec3 vP; varying vec3 vWP;
+    void main(){
+      vec3 p = normalize(vP);
+      float c = fbm(p*3.2 + vec3(uTime*0.02,0.0,uSeed));
+      float c2 = fbm(p*6.5 - vec3(uTime*0.035));
+      float a = smoothstep(0.52,0.8, c*0.65 + c2*0.35);
+      vec3 N=normalize(vWN); vec3 L=normalize(-vWP);
+      float diff = clamp(dot(N,L),0.0,1.0);
+      gl_FragColor = vec4(vec3(1.0)*(0.15+diff), a*(0.2+diff*0.8));
     }`;
 
   function atmosphere(radius, color) {
     return new THREE.Mesh(
-      new THREE.SphereGeometry(radius * 1.18, 48, 48),
+      new THREE.SphereGeometry(radius * 1.2, 48, 48),
       new THREE.ShaderMaterial({
         uniforms: { uColor: { value: new THREE.Color(color) } },
         vertexShader: `varying vec3 vN; varying vec3 vV;
-          void main(){ vN = normalize(normalMatrix*normal);
-            vec4 mv = modelViewMatrix*vec4(position,1.0); vV = normalize(-mv.xyz);
-            gl_Position = projectionMatrix*mv; }`,
+          void main(){ vN=normalize(normalMatrix*normal);
+            vec4 mv=modelViewMatrix*vec4(position,1.0); vV=normalize(-mv.xyz);
+            gl_Position=projectionMatrix*mv; }`,
         fragmentShader: `uniform vec3 uColor; varying vec3 vN; varying vec3 vV;
-          void main(){ float r = pow(1.0 - max(dot(vN,vV),0.0), 2.5);
-            gl_FragColor = vec4(uColor, r*0.9); }`,
-        side: THREE.BackSide,
-        blending: THREE.AdditiveBlending,
-        transparent: true,
-        depthWrite: false,
+          void main(){ float r=pow(1.0-max(dot(vN,vV),0.0),2.5); gl_FragColor=vec4(uColor,r*0.9); }`,
+        side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
       })
     );
   }
 
+  function makePlanetMaterial(cfg) {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        uA: { value: new THREE.Color(cfg.a) }, uB: { value: new THREE.Color(cfg.b) }, uC: { value: new THREE.Color(cfg.c) },
+        uTime: { value: 0 }, uSeed: { value: Math.random() * 10 }, uBands: { value: cfg.bands || 0 },
+        uNight: { value: cfg.night ? 1 : 0 }, uIce: { value: cfg.ice ? 1 : 0 },
+      },
+      vertexShader: planetVert, fragmentShader: planetFrag,
+    });
+  }
+
   const PLANETS = [
-    { r: 0.9, dist: 9,  speed: 0.55, tilt: 0.2,  a: 0x8a5a3c, b: 0xd9a066, c: 0xffe0b0, bands: 0, atm: 0xffb070, ring: false },
-    { r: 1.5, dist: 14, speed: 0.34, tilt: 0.35, a: 0x1f5fa8, b: 0x3aa0d9, c: 0x9be7ff, bands: 0, atm: 0x6fc8ff, ring: false }, // "tierra"
-    { r: 1.1, dist: 18, speed: 0.27, tilt: 0.5,  a: 0xa83a3a, b: 0xd96a4a, c: 0xffc28a, bands: 0, atm: 0xff8a6a, ring: false }, // "marte"
-    { r: 2.6, dist: 25, speed: 0.16, tilt: 0.25, a: 0xc9a36a, b: 0xe8c896, c: 0xfff0d0, bands: 1, atm: 0xf6dca0, ring: true },  // "júpiter"
-    { r: 2.0, dist: 33, speed: 0.11, tilt: 0.6,  a: 0xc7b07a, b: 0xe6d6a8, c: 0xfff4d8, bands: 1, atm: 0xe9dcae, ring: true },  // "saturno"
+    { r: 0.9, dist: 9,  speed: 0.55, tilt: 0.15, a: 0x8a5a3c, b: 0xd9a066, c: 0xffe0b0, atm: 0xffb070 },
+    { r: 1.5, dist: 14, speed: 0.34, tilt: 0.40, a: 0x16407a, b: 0x2f8f5a, c: 0x9be7ff, atm: 0x6fc8ff, clouds: true, night: true, ice: true, moons: 1 }, // tierra
+    { r: 1.1, dist: 18, speed: 0.27, tilt: 0.50, a: 0x8f2f23, b: 0xc9603a, c: 0xffc28a, atm: 0xff8a6a, ice: true }, // marte
+    { r: 2.6, dist: 25, speed: 0.16, tilt: 0.20, a: 0xb98f5a, b: 0xe8c896, c: 0xfff0d0, atm: 0xf6dca0, bands: 1, moons: 2 }, // júpiter
+    { r: 2.0, dist: 34, speed: 0.11, tilt: 0.55, a: 0xc7b07a, b: 0xe6d6a8, c: 0xfff4d8, atm: 0xe9dcae, bands: 1, ring: true }, // saturno
   ];
 
   const planets = PLANETS.map((cfg) => {
@@ -163,136 +210,244 @@
     pivot.rotation.x = cfg.tilt;
     scene.add(pivot);
 
-    const mat = new THREE.ShaderMaterial({
-      uniforms: {
-        uA: { value: new THREE.Color(cfg.a) },
-        uB: { value: new THREE.Color(cfg.b) },
-        uC: { value: new THREE.Color(cfg.c) },
-        uLight: { value: new THREE.Vector3(0, 0, 0) },
-        uTime: { value: 0 },
-        uSeed: { value: Math.random() * 10 },
-        uBands: { value: cfg.bands },
-      },
-      vertexShader: planetVert,
-      fragmentShader: planetFrag,
-    });
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, 48, 48), mat);
+    const mat = makePlanetMaterial(cfg);
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, 64, 64), mat);
+    mesh.rotation.z = cfg.tilt * 0.5;
     const group = new THREE.Group();
-    group.add(mesh);
-    group.add(atmosphere(cfg.r, cfg.atm));
+    group.add(mesh, atmosphere(cfg.r, cfg.atm));
+
+    let cloudMat = null;
+    if (cfg.clouds) {
+      cloudMat = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uSeed: { value: Math.random() * 10 } },
+        vertexShader: planetVert, fragmentShader: cloudFrag, transparent: true, depthWrite: false,
+      });
+      group.add(new THREE.Mesh(new THREE.SphereGeometry(cfg.r * 1.03, 48, 48), cloudMat));
+    }
 
     if (cfg.ring) {
       const ring = new THREE.Mesh(
-        new THREE.RingGeometry(cfg.r * 1.4, cfg.r * 2.2, 64),
+        new THREE.RingGeometry(cfg.r * 1.35, cfg.r * 2.3, 96),
         new THREE.MeshBasicMaterial({
-          map: radialTexture([[0, "rgba(0,0,0,0)"], [0.55, "rgba(255,235,200,0.0)"], [0.6, "rgba(255,225,190,0.85)"], [0.8, "rgba(230,200,150,0.5)"], [1, "rgba(0,0,0,0)"]]),
-          side: THREE.DoubleSide,
-          transparent: true,
-          depthWrite: false,
+          map: radialTexture([[0, "rgba(0,0,0,0)"], [0.5, "rgba(255,235,200,0)"], [0.56, "rgba(255,228,192,0.9)"], [0.66, "rgba(210,180,140,0.3)"], [0.72, "rgba(255,235,205,0.85)"], [0.85, "rgba(220,190,150,0.45)"], [1, "rgba(0,0,0,0)"]]),
+          side: THREE.DoubleSide, transparent: true, depthWrite: false,
         })
       );
       ring.rotation.x = Math.PI / 2 - 0.35;
       group.add(ring);
     }
 
+    // lunas
+    const moons = [];
+    for (let m = 0; m < (cfg.moons || 0); m++) {
+      const mr = cfg.r * (0.22 + Math.random() * 0.12);
+      const mMat = makePlanetMaterial({ a: 0x888888, b: 0xb0b0b0, c: 0xe0e0e0 });
+      const moon = new THREE.Mesh(new THREE.SphereGeometry(mr, 24, 24), mMat);
+      const mp = new THREE.Object3D();
+      mp.rotation.x = (Math.random() - 0.5) * 0.8;
+      moon.position.x = cfg.r * (1.8 + m * 0.9);
+      mp.add(moon);
+      group.add(mp);
+      moons.push({ pivot: mp, mat: mMat, speed: 0.6 + Math.random() * 0.6, angle: Math.random() * 6.28 });
+    }
+
     group.position.x = cfg.dist;
     pivot.add(group);
 
-    // órbita visible (anillo tenue)
+    // órbita tenue
     const orbit = new THREE.Mesh(
-      new THREE.RingGeometry(cfg.dist - 0.02, cfg.dist + 0.02, 128),
+      new THREE.RingGeometry(cfg.dist - 0.02, cfg.dist + 0.02, 160),
       new THREE.MeshBasicMaterial({ color: 0xff9ec4, transparent: true, opacity: 0.06, side: THREE.DoubleSide })
     );
     orbit.rotation.x = Math.PI / 2;
     pivot.add(orbit);
 
-    return { cfg, pivot, group, mesh, mat, angle: Math.random() * Math.PI * 2 };
+    return { cfg, group, mesh, mat, cloudMat, moons, angle: Math.random() * Math.PI * 2 };
   });
 
-  // =============== CAMPO DE ESTRELLAS ===============
-  function makeStars(count, spread, size, colorFn) {
+  // ===================== CINTURÓN DE ASTEROIDES =====================
+  let asteroidBelt;
+  (() => {
+    const N = 900, inner = 20.5, outer = 23.5;
     const g = new THREE.BufferGeometry();
-    const pos = new Float32Array(count * 3);
-    const col = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const r = spread * (0.4 + Math.random() * 0.6);
-      const th = Math.random() * Math.PI * 2;
-      const ph = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
-      pos[i * 3 + 1] = r * Math.cos(ph) * 0.6;
-      pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
-      const c = colorFn();
-      col.set([c.r, c.g, c.b], i * 3);
+    const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const r = inner + Math.random() * (outer - inner);
+      const a = Math.random() * Math.PI * 2;
+      pos[i * 3] = Math.cos(a) * r;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 0.8;
+      pos[i * 3 + 2] = Math.sin(a) * r;
+      const sh = 0.4 + Math.random() * 0.4;
+      col.set([sh, sh * 0.85, sh * 0.7], i * 3);
     }
     g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     g.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    const m = new THREE.PointsMaterial({
-      size, vertexColors: true, transparent: true, opacity: 0.9,
-      depthWrite: false, blending: THREE.AdditiveBlending,
-      map: radialTexture([[0, "rgba(255,255,255,1)"], [0.4, "rgba(255,255,255,0.6)"], [1, "rgba(255,255,255,0)"]]),
-    });
-    return new THREE.Points(g, m);
-  }
-  const tints = [0xffffff, 0xffd9e6, 0xcfe2ff, 0xfff0c8];
-  const colorFn = () => new THREE.Color(tints[(Math.random() * tints.length) | 0]);
-  const starsFar = makeStars(2200, 900, 2.6, colorFn);
-  const starsNear = makeStars(700, 380, 4.5, colorFn);
-  scene.add(starsFar, starsNear);
+    const belt = new THREE.Points(g, new THREE.PointsMaterial({
+      size: 0.35, vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false,
+      map: radialTexture([[0, "rgba(255,255,255,1)"], [0.5, "rgba(200,180,160,0.6)"], [1, "rgba(0,0,0,0)"]]),
+    }));
+    belt.userData.spin = 0.05;
+    scene.add(belt);
+    asteroidBelt = belt;
+  })();
 
-  // =============== NEBULOSAS ===============
-  const nebTex = radialTexture([[0, "rgba(255,140,200,0.55)"], [0.4, "rgba(150,90,220,0.25)"], [1, "rgba(60,30,90,0)"]]);
+  // ===================== ESTRELLAS QUE TITILAN =====================
+  const starTex = radialTexture([[0, "rgba(255,255,255,1)"], [0.4, "rgba(255,255,255,0.7)"], [1, "rgba(255,255,255,0)"]]);
+  function makeStars(count, spread, baseSize) {
+    const tints = [[1, 1, 1], [1, 0.85, 0.92], [0.81, 0.89, 1], [1, 0.94, 0.78]];
+    const g = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3), col = new Float32Array(count * 3);
+    const siz = new Float32Array(count), pha = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const r = spread * (0.4 + Math.random() * 0.6);
+      const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+      pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+      pos[i * 3 + 1] = r * Math.cos(ph) * 0.7;
+      pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+      const c = tints[(Math.random() * tints.length) | 0];
+      col.set(c, i * 3);
+      siz[i] = baseSize * (0.5 + Math.random() * 1.2);
+      pha[i] = Math.random() * Math.PI * 2;
+    }
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+    g.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
+    g.setAttribute("aPhase", new THREE.BufferAttribute(pha, 1));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uTex: { value: starTex } },
+      vertexShader: `
+        attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+        varying vec3 vColor; varying float vTw; uniform float uTime;
+        void main(){
+          vColor = aColor;
+          vTw = 0.5 + 0.5*sin(uTime*2.2 + aPhase);
+          vec4 mv = modelViewMatrix*vec4(position,1.0);
+          gl_PointSize = aSize * (0.6+0.8*vTw) * (300.0/-mv.z);
+          gl_Position = projectionMatrix*mv;
+        }`,
+      fragmentShader: `
+        uniform sampler2D uTex; varying vec3 vColor; varying float vTw;
+        void main(){ vec4 t = texture2D(uTex, gl_PointCoord); gl_FragColor = vec4(vColor, t.a*(0.4+0.6*vTw)); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    return { points: new THREE.Points(g, mat), mat };
+  }
+  const starsFar = makeStars(2400, 1100, 3.0);
+  const starsNear = makeStars(800, 420, 5.0);
+  scene.add(starsFar.points, starsNear.points);
+
+  // ===================== GALAXIA ESPIRAL LEJANA =====================
+  function galaxyTexture() {
+    const s = 512, c = document.createElement("canvas");
+    c.width = c.height = s;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "rgba(0,0,0,0)";
+    ctx.fillRect(0, 0, s, s);
+    const cx = s / 2, cy = s / 2;
+    // núcleo
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.18);
+    core.addColorStop(0, "rgba(255,240,210,0.95)");
+    core.addColorStop(1, "rgba(255,210,160,0)");
+    ctx.fillStyle = core; ctx.fillRect(0, 0, s, s);
+    // brazos espirales
+    ctx.globalCompositeOperation = "lighter";
+    const arms = 2;
+    for (let a = 0; a < arms; a++) {
+      for (let i = 0; i < 2600; i++) {
+        const t = i / 2600;
+        const ang = a * Math.PI + t * 6.0 + (Math.random() - 0.5) * 0.5;
+        const rad = t * s * 0.46;
+        const x = cx + Math.cos(ang) * rad;
+        const y = cy + Math.sin(ang) * rad * 0.62;
+        const tint = Math.random();
+        ctx.fillStyle = tint < 0.5 ? "rgba(255,200,230,0.5)" : tint < 0.8 ? "rgba(180,200,255,0.5)" : "rgba(255,235,200,0.6)";
+        const sz = (1 - t) * 2.4 + 0.3;
+        ctx.beginPath(); ctx.arc(x, y, sz, 0, 6.28); ctx.fill();
+      }
+    }
+    const t = new THREE.Texture(c); t.needsUpdate = true; return t;
+  }
+  const galaxy = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: galaxyTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55,
+  }));
+  galaxy.scale.set(520, 520, 1);
+  galaxy.position.set(-520, 180, -1100);
+  scene.add(galaxy);
+
+  // ===================== NEBULOSAS =====================
+  const nebTex = radialTexture([[0, "rgba(255,150,205,0.55)"], [0.4, "rgba(150,90,220,0.22)"], [1, "rgba(60,30,90,0)"]]);
   const nebGroup = new THREE.Group();
   const nebColors = ["#ff6fb5", "#9a6bff", "#5fb0ff", "#ff9a6f"];
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 8; i++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
       map: nebTex, color: new THREE.Color(nebColors[i % nebColors.length]),
       blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.5,
     }));
-    const sc = 80 + Math.random() * 140;
+    const sc = 90 + Math.random() * 160;
     s.scale.set(sc, sc, 1);
-    s.position.set((Math.random() - 0.5) * 600, (Math.random() - 0.5) * 260, -200 - Math.random() * 400);
+    s.position.set((Math.random() - 0.5) * 700, (Math.random() - 0.5) * 300, -250 - Math.random() * 500);
     nebGroup.add(s);
   }
   scene.add(nebGroup);
 
-  // =============== ESTRELLAS FUGACES ===============
+  // ===================== COMETA CON COLA =====================
+  const comet = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture([[0, "rgba(220,245,255,1)"], [0.35, "rgba(150,210,255,0.6)"], [1, "rgba(120,180,255,0)"]]),
+    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  }));
+  comet.scale.set(5, 5, 1);
+  scene.add(comet);
+  const TAIL = 70;
+  const tailGeo = new THREE.BufferGeometry();
+  const tailPos = new Float32Array(TAIL * 3);
+  const tailAlpha = new Float32Array(TAIL);
+  tailGeo.setAttribute("position", new THREE.BufferAttribute(tailPos, 3));
+  tailGeo.setAttribute("aAlpha", new THREE.BufferAttribute(tailAlpha, 1));
+  const tail = new THREE.Points(tailGeo, new THREE.ShaderMaterial({
+    uniforms: { uTex: { value: starTex } },
+    vertexShader: `attribute float aAlpha; varying float vA; void main(){ vA=aAlpha;
+      vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=aAlpha*9.0*(300.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader: `uniform sampler2D uTex; varying float vA; void main(){ vec4 t=texture2D(uTex,gl_PointCoord); gl_FragColor=vec4(0.75,0.9,1.0,t.a*vA); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  scene.add(tail);
+  let cometAngle = Math.random() * 6.28;
+  const cometTrail = [];
+
+  // ===================== ESTRELLAS FUGACES =====================
   const shooters = [];
   function spawnShooter() {
     const geo = new THREE.BufferGeometry();
-    const start = new THREE.Vector3((Math.random() - 0.5) * 200, 40 + Math.random() * 40, -60 - Math.random() * 80);
+    const start = new THREE.Vector3((Math.random() - 0.5) * 220, 45 + Math.random() * 40, -60 - Math.random() * 90);
     const dir = new THREE.Vector3(-1 - Math.random(), -0.6 - Math.random() * 0.5, 0).normalize();
     const pts = [];
-    for (let i = 0; i < 12; i++) pts.push(start.clone().add(dir.clone().multiplyScalar(i * 2.2)));
+    for (let i = 0; i < 14; i++) pts.push(start.clone().add(dir.clone().multiplyScalar(i * 2.2)));
     geo.setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({ color: 0xffd9f0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
-    const line = new THREE.Line(geo, mat);
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffd9f0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
     scene.add(line);
-    shooters.push({ line, dir, life: 0, ttl: 1.1 + Math.random() * 0.6, speed: 90 + Math.random() * 60 });
+    shooters.push({ line, dir, life: 0, ttl: 1.1 + Math.random() * 0.6, speed: 95 + Math.random() * 60 });
   }
 
-  // =============== CORAZÓN DE PARTÍCULAS (orbita lejana) ===============
+  // ===================== CORAZÓN DE PARTÍCULAS =====================
   const heartGeo = new THREE.BufferGeometry();
-  const HC = 1400;
-  const hpos = new Float32Array(HC * 3);
+  const HC = 1600, hpos = new Float32Array(HC * 3);
   for (let i = 0; i < HC; i++) {
     const t = Math.random() * Math.PI * 2;
     const x = 16 * Math.pow(Math.sin(t), 3);
     const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-    const jitter = 0.6;
-    hpos[i * 3] = x * 0.45 + (Math.random() - 0.5) * jitter;
-    hpos[i * 3 + 1] = y * 0.45 + (Math.random() - 0.5) * jitter;
+    hpos[i * 3] = x * 0.45 + (Math.random() - 0.5) * 0.6;
+    hpos[i * 3 + 1] = y * 0.45 + (Math.random() - 0.5) * 0.6;
     hpos[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
   }
   heartGeo.setAttribute("position", new THREE.BufferAttribute(hpos, 3));
   const heart = new THREE.Points(heartGeo, new THREE.PointsMaterial({
-    color: 0xff5d8f, size: 0.5, transparent: true, opacity: 0.9, depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    color: 0xff5d8f, size: 0.5, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending,
     map: radialTexture([[0, "rgba(255,255,255,1)"], [0.5, "rgba(255,120,170,0.7)"], [1, "rgba(255,90,140,0)"]]),
   }));
-  heart.position.set(-30, 16, -40);
+  heart.position.set(-30, 16, -42);
   scene.add(heart);
 
-  // =============== INTERACCIÓN ===============
+  // ===================== INTERACCIÓN =====================
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   window.addEventListener("pointermove", (e) => {
     pointer.tx = (e.clientX / window.innerWidth) * 2 - 1;
@@ -307,13 +462,12 @@
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    camera.aspect = w / h; camera.updateProjectionMatrix();
   }
   window.addEventListener("resize", resize);
   resize();
 
-  // =============== BUCLE ===============
+  // ===================== BUCLE =====================
   const clock = new THREE.Clock();
   let camAngle = 0;
   function animate() {
@@ -323,24 +477,53 @@
 
     sunUniforms.uTime.value = t;
     sun.rotation.y += dt * 0.05;
-    sunGlow.material.rotation += dt * 0.02;
+    corona.material.rotation += dt * 0.02;
+    const pulse = 30 + Math.sin(t * 1.3) * 1.5;
+    corona.scale.set(pulse, pulse, 1);
+    flares.forEach((fl) => {
+      const d = 4.4 + Math.sin(t * 2 + fl.userData.ph) * 0.5;
+      fl.position.set(Math.cos(fl.userData.a + t * 0.05) * d, fl.userData.el * d, Math.sin(fl.userData.a + t * 0.05) * d);
+      const s = fl.userData.base * (0.7 + 0.3 * Math.sin(t * 3 + fl.userData.ph));
+      fl.scale.set(s, s, 1);
+    });
 
     planets.forEach((p) => {
       p.angle += dt * p.cfg.speed;
       p.group.position.set(Math.cos(p.angle) * p.cfg.dist, 0, Math.sin(p.angle) * p.cfg.dist);
       p.mesh.rotation.y += dt * 0.3;
       p.mat.uniforms.uTime.value = t;
-      // El sol está en el origen, así que la luz apunta hacia (0,0,0).
+      if (p.cloudMat) { p.cloudMat.uniforms.uTime.value = t; }
+      p.moons.forEach((m) => { m.angle += dt * m.speed; m.pivot.rotation.y = m.angle; m.mat.uniforms.uTime.value = t; });
     });
 
-    starsFar.rotation.y += dt * 0.005;
-    starsNear.rotation.y += dt * 0.012;
+    if (asteroidBelt) asteroidBelt.rotation.y += dt * asteroidBelt.userData.spin;
+    starsFar.mat.uniforms.uTime.value = t;
+    starsNear.mat.uniforms.uTime.value = t;
+    starsFar.points.rotation.y += dt * 0.004;
+    starsNear.points.rotation.y += dt * 0.01;
     nebGroup.rotation.z += dt * 0.003;
+    galaxy.material.rotation += dt * 0.01;
     heart.rotation.y += dt * 0.1;
     heart.position.y = 16 + Math.sin(t * 0.5) * 1.5;
 
+    // cometa en órbita elíptica inclinada + cola apuntando lejos del sol
+    cometAngle += dt * 0.18;
+    const cx = Math.cos(cometAngle) * 70, cz = Math.sin(cometAngle) * 48, cy = Math.sin(cometAngle * 0.7) * 22;
+    comet.position.set(cx, cy, cz);
+    cometTrail.unshift(new THREE.Vector3(cx, cy, cz));
+    if (cometTrail.length > TAIL) cometTrail.pop();
+    const away = comet.position.clone().normalize();
+    for (let i = 0; i < TAIL; i++) {
+      const base = cometTrail[Math.min(i, cometTrail.length - 1)] || comet.position;
+      const pos = base.clone().add(away.clone().multiplyScalar(i * 0.25));
+      tailPos[i * 3] = pos.x; tailPos[i * 3 + 1] = pos.y; tailPos[i * 3 + 2] = pos.z;
+      tailAlpha[i] = 1 - i / TAIL;
+    }
+    tailGeo.attributes.position.needsUpdate = true;
+    tailGeo.attributes.aAlpha.needsUpdate = true;
+
     // estrellas fugaces
-    if (Math.random() < 0.008 && shooters.length < 3) spawnShooter();
+    if (Math.random() < 0.01 && shooters.length < 3) spawnShooter();
     for (let i = shooters.length - 1; i >= 0; i--) {
       const s = shooters[i];
       s.life += dt;
@@ -349,14 +532,13 @@
       if (s.life >= s.ttl) { scene.remove(s.line); s.line.geometry.dispose(); shooters.splice(i, 1); }
     }
 
-    // cámara: auto-órbita suave + parallax
+    // cámara
     pointer.x += (pointer.tx - pointer.x) * 0.04;
     pointer.y += (pointer.ty - pointer.y) * 0.04;
     camAngle += dt * 0.02;
-    const radius = 46;
     camera.position.x = Math.sin(camAngle) * 6 + pointer.x * 8;
     camera.position.y = 6 + pointer.y * -4;
-    camera.position.z = radius + Math.cos(camAngle) * 4;
+    camera.position.z = 46 + Math.cos(camAngle) * 4;
     camera.lookAt(0, 0, 0);
 
     renderer.render(scene, camera);
