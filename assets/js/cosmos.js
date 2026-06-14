@@ -481,6 +481,161 @@
   heart.position.set(-30, 16, -42);
   scene.add(heart);
 
+  // ===================== CONSTELACIÓN "TAMARA" =====================
+  let constMat = null;
+  (() => {
+    const cw = 512, ch = 160, c = document.createElement("canvas");
+    c.width = cw; c.height = ch;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 120px Georgia, 'Times New Roman', serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("Tamara", cw / 2, ch / 2);
+    const img = ctx.getImageData(0, 0, cw, ch).data;
+    const pts = [];
+    const step = 7, scale = 0.72;
+    for (let y = 0; y < ch; y += step) {
+      for (let x = 0; x < cw; x += step) {
+        if (img[(y * cw + x) * 4] > 130 && Math.random() < 0.55) {
+          pts.push(new THREE.Vector3((x - cw / 2) * scale, -(y - ch / 2) * scale, (Math.random() - 0.5) * 6));
+        }
+      }
+    }
+    // estrellas del nombre
+    const g = new THREE.BufferGeometry();
+    const pos = new Float32Array(pts.length * 3), col = new Float32Array(pts.length * 3);
+    const siz = new Float32Array(pts.length), pha = new Float32Array(pts.length);
+    pts.forEach((p, i) => {
+      pos.set([p.x, p.y, p.z], i * 3);
+      col.set([1.0, 0.78, 0.9], i * 3);
+      siz[i] = 5 + Math.random() * 4;
+      pha[i] = Math.random() * 6.28;
+    });
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+    g.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
+    g.setAttribute("aPhase", new THREE.BufferAttribute(pha, 1));
+    constMat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uTex: { value: starTex } },
+      vertexShader: `attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+        varying vec3 vColor; varying float vTw; uniform float uTime;
+        void main(){ vColor=aColor; vTw=0.5+0.5*sin(uTime*2.0+aPhase);
+          vec4 mv=modelViewMatrix*vec4(position,1.0);
+          gl_PointSize=aSize*(0.5+0.9*vTw)*(300.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+      fragmentShader: `uniform sampler2D uTex; varying vec3 vColor; varying float vTw;
+        void main(){ vec4 t=texture2D(uTex,gl_PointCoord); gl_FragColor=vec4(vColor,t.a*(0.4+0.6*vTw)); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const cloud = new THREE.Points(g, constMat);
+
+    // líneas de constelación entre estrellas cercanas
+    const segs = [];
+    const maxD = step * scale * 2.0;
+    for (let i = 0; i < pts.length; i++) {
+      let links = 0;
+      for (let j = i + 1; j < pts.length && links < 2; j++) {
+        if (pts[i].distanceTo(pts[j]) < maxD) { segs.push(pts[i], pts[j]); links++; }
+      }
+    }
+    const lg = new THREE.BufferGeometry().setFromPoints(segs);
+    const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({
+      color: 0xff9ec4, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending,
+    }));
+
+    const group = new THREE.Group();
+    group.add(cloud, lines);
+    group.position.set(0, 150, -640);
+    scene.add(group);
+    constMat.userData.group = group;
+  })();
+
+  // ===================== DESTELLOS ANAMÓRFICOS DEL SOL =====================
+  function streakTexture(horizontal) {
+    const s = 256, c = document.createElement("canvas");
+    c.width = c.height = s;
+    const ctx = c.getContext("2d");
+    const g = horizontal
+      ? ctx.createLinearGradient(0, 0, s, 0)
+      : ctx.createLinearGradient(0, 0, 0, s);
+    g.addColorStop(0, "rgba(255,220,180,0)");
+    g.addColorStop(0.5, "rgba(255,235,210,0.9)");
+    g.addColorStop(1, "rgba(255,220,180,0)");
+    ctx.fillStyle = g;
+    if (horizontal) ctx.fillRect(0, s * 0.46, s, s * 0.08);
+    else ctx.fillRect(s * 0.46, 0, s * 0.08, s);
+    const t = new THREE.Texture(c); t.needsUpdate = true; return t;
+  }
+  const streaks = [];
+  [[true, 50, 4], [false, 4, 30]].forEach(([h, sx, sy]) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: streakTexture(h), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.7,
+    }));
+    sp.scale.set(sx, sy, 1);
+    scene.add(sp);
+    streaks.push(sp);
+  });
+
+  // ===================== AURORAS POLARES (planeta tierra) =====================
+  const auroraMats = [];
+  (() => {
+    const earth = planets[1];
+    if (!earth) return;
+    const r = earth.cfg.r;
+    function cap(flip) {
+      const geo = new THREE.SphereGeometry(r * 1.12, 40, 16, 0, Math.PI * 2, 0, 0.5);
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uC1: { value: new THREE.Color(0x66ffcc) }, uC2: { value: new THREE.Color(0xff88dd) } },
+        vertexShader: `varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: NOISE + `
+          uniform float uTime; uniform vec3 uC1; uniform vec3 uC2; varying vec3 vP;
+          void main(){
+            vec3 p = normalize(vP);
+            float lon = atan(p.z, p.x);
+            float curtain = fbm(vec3(lon*3.5, p.y*5.0 - uTime*0.4, uTime*0.12));
+            float band = smoothstep(0.15,0.6, curtain);
+            float lat = smoothstep(0.55,0.95, p.y);
+            vec3 col = mix(uC1, uC2, curtain);
+            gl_FragColor = vec4(col, band*lat*0.6);
+          }`,
+        side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      const m = new THREE.Mesh(geo, mat);
+      if (flip) m.rotation.x = Math.PI;
+      earth.group.add(m);
+      auroraMats.push(mat);
+    }
+    cap(false); cap(true);
+  })();
+
+  // ===================== POLVO EN LOS ANILLOS (Saturno) =====================
+  (() => {
+    const sat = planets[4];
+    if (!sat) return;
+    const N = 1200, inner = sat.cfg.r * 1.35, outer = sat.cfg.r * 2.3;
+    const g = new THREE.BufferGeometry();
+    const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const rr = inner + Math.random() * (outer - inner);
+      const a = Math.random() * Math.PI * 2;
+      pos[i * 3] = Math.cos(a) * rr;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 0.06;
+      pos[i * 3 + 2] = Math.sin(a) * rr;
+      const sh = 0.7 + Math.random() * 0.3;
+      col.set([sh, sh * 0.92, sh * 0.78], i * 3);
+    }
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    const dust = new THREE.Points(g, new THREE.PointsMaterial({
+      size: 0.12, vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      map: radialTexture([[0, "rgba(255,255,255,1)"], [0.5, "rgba(240,225,190,0.6)"], [1, "rgba(0,0,0,0)"]]),
+    }));
+    dust.rotation.x = Math.PI / 2 - 0.35;
+    sat.group.add(dust);
+    sat.ringDust = dust;
+  })();
+
   // ===================== INTERACCIÓN =====================
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   window.addEventListener("pointermove", (e) => {
@@ -575,6 +730,18 @@
     galaxy.material.rotation += dt * 0.01;
     heart.rotation.y += dt * 0.1;
     heart.position.y = 16 + Math.sin(t * 0.5) * 1.5;
+
+    if (constMat) {
+      constMat.uniforms.uTime.value = t;
+      constMat.userData.group.position.y = 150 + Math.sin(t * 0.3) * 4;
+    }
+    auroraMats.forEach((m) => { m.uniforms.uTime.value = t; });
+    streaks.forEach((sp) => {
+      sp.position.copy(sun.position);
+      const k = 0.85 + Math.sin(t * 1.3) * 0.15;
+      sp.material.opacity = 0.55 * k;
+    });
+    if (planets[4] && planets[4].ringDust) planets[4].ringDust.rotation.z += dt * 0.05;
 
     // cometa en órbita elíptica inclinada + cola apuntando lejos del sol
     cometAngle += dt * 0.18;
