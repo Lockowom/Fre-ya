@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>·</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/write.css" />
+</head>
+<body>
+  <main class="panel">
+    <header class="panel-head">
+      <h1>Para <span class="name">Tamara</span></h1>
+      <p class="sub" id="conn">Conectando…</p>
+    </header>
+
+    <section class="composer">
+      <textarea id="body" rows="4" maxlength="2000" placeholder="Escribe algo bonito para ella…"></textarea>
+      <div class="composer-row">
+        <span class="count"><span id="count">0</span>/2000</span>
+        <button id="send" class="btn">Enviar a Tamara ♥</button>
+      </div>
+      <p class="status" id="status"></p>
+    </section>
+
+    <section class="list-wrap">
+      <h2>Mensajes <span class="muted" id="total"></span></h2>
+      <ul class="list" id="list"></ul>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/secret.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/write.js"></script>
+</body>
+</html>

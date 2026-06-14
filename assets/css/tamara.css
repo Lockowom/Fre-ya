@@ -1,0 +1,202 @@
+:root {
+  --rose: #ff5d8f;
+  --rose-soft: #ffa6c1;
+  --gold: #ffd9a0;
+  --ink: #fce9f1;
+  --bg-1: #240a2e;
+  --bg-2: #3d0f3a;
+  --bg-3: #120516;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: "Poppins", system-ui, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(120% 90% at 50% -10%, var(--bg-2), transparent 60%),
+    radial-gradient(100% 80% at 100% 110%, #5a1240, transparent 60%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-3));
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ---------------- Intro ---------------- */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(61, 15, 58, 0.5), transparent 70%);
+  transition: opacity 0.9s ease;
+}
+.intro.fade { opacity: 0; pointer-events: none; }
+.intro-small {
+  font-family: "Cormorant Garamond", serif;
+  font-style: italic;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  color: var(--rose-soft);
+  margin: 0;
+  opacity: 0;
+  animation: rise 1s ease 0.2s forwards;
+}
+.intro-name {
+  font-family: "Dancing Script", cursive;
+  font-size: clamp(3.4rem, 16vw, 7rem);
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+  background: linear-gradient(90deg, var(--rose), var(--gold), var(--rose-soft));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 50px rgba(255, 93, 143, 0.35);
+  opacity: 0;
+  animation: rise 1.2s ease 0.5s forwards, shimmer 6s linear 1.6s infinite;
+}
+.intro-sub {
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  color: rgba(252, 233, 241, 0.55);
+  text-transform: uppercase;
+  margin-top: 18px;
+  opacity: 0;
+  animation: rise 1s ease 1.1s forwards, pulse 2.4s ease 2s infinite;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes shimmer { to { background-position: 200% center; } }
+@keyframes pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.9; } }
+
+/* ---------------- Experiencia ---------------- */
+.stage-tamara {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.letter {
+  width: min(620px, 92vw);
+  max-height: 76vh;
+  overflow-y: auto;
+  padding: clamp(26px, 5vw, 46px);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 166, 193, 0.25);
+  box-shadow: 0 30px 90px -30px rgba(0, 0, 0, 0.8), inset 0 0 60px rgba(255, 93, 143, 0.06);
+  backdrop-filter: blur(14px);
+  animation: cardin 1s ease both;
+}
+@keyframes cardin { from { opacity: 0; transform: translateY(28px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.letter-head { margin-bottom: 18px; }
+.letter-from {
+  font-family: "Cormorant Garamond", serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  color: var(--rose-soft);
+}
+.letter-name {
+  font-family: "Dancing Script", cursive;
+  font-size: clamp(2.4rem, 9vw, 3.6rem);
+  margin: 2px 0 0;
+  background: linear-gradient(90deg, var(--rose), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.letter-body {
+  font-family: "Cormorant Garamond", serif;
+  font-size: clamp(1.25rem, 4.6vw, 1.7rem);
+  line-height: 1.7;
+  font-weight: 500;
+  margin: 0;
+  min-height: 3em;
+  white-space: pre-wrap;
+}
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  background: var(--rose);
+  vertical-align: -0.15em;
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.letter-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26px;
+}
+.dots { display: flex; gap: 7px; }
+.dots i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255, 166, 193, 0.3);
+  transition: background 0.3s, transform 0.3s;
+  font-style: normal;
+}
+.dots i.on { background: var(--rose); transform: scale(1.35); }
+.heart-sign {
+  color: var(--rose);
+  filter: drop-shadow(0 0 10px var(--rose));
+  animation: beat 1.3s ease-in-out infinite;
+}
+@keyframes beat { 0%, 100% { transform: scale(1); } 20% { transform: scale(1.25); } 40% { transform: scale(0.95); } }
+
+.hint {
+  margin-top: 22px;
+  font-size: 0.72rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(252, 233, 241, 0.4);
+  animation: pulse 2.6s ease infinite;
+}
+
+.toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 8;
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: rgba(255, 93, 143, 0.9);
+  color: #fff;
+  font-size: 0.85rem;
+  box-shadow: 0 14px 40px -12px rgba(255, 93, 143, 0.7);
+  opacity: 0;
+  transition: opacity 0.5s, transform 0.5s;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}

@@ -3,75 +3,51 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fre-ya · Creative Dev</title>
-  <meta name="description" content="Fre-ya — laboratorio de experimentos creativos en HTML, CSS y JavaScript." />
+  <title>Para Tamara 💖</title>
+  <meta name="description" content="Un lugar hecho con amor, solo para ti." />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#1a0820" />
+  <!-- Open Graph -->
+  <meta property="og:title" content="Para Tamara 💖" />
+  <meta property="og:description" content="Un lugar hecho con amor, solo para ti." />
+  <meta property="og:type" content="website" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@300;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/main.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/tamara.css" />
 </head>
-<body class="landing">
-  <canvas id="code-rain" aria-hidden="true"></canvas>
+<body>
+  <canvas id="sky" aria-hidden="true"></canvas>
 
-  <header class="topbar">
-    <a class="brand" href="index.html">Fre&#8209;ya<span class="brand-dot">.</span></a>
-    <nav class="tabs" aria-label="Lenguajes">
-      <a class="tab" href="#demos" data-lang="html">Html</a>
-      <a class="tab" href="#demos" data-lang="css">Css</a>
-      <a class="tab" href="#demos" data-lang="js">Js</a>
-    </nav>
-  </header>
+  <!-- Intro -->
+  <div class="intro" id="intro">
+    <p class="intro-small">para</p>
+    <h1 class="intro-name">Tamara</h1>
+    <p class="intro-sub">toca para empezar</p>
+  </div>
 
-  <main class="hero">
-    <p class="hero-kicker">CREATIVE&nbsp;CODE&nbsp;LAB</p>
-    <h1 class="hero-title">Pequeñas piezas de<br /><span class="grad">magia en el navegador</span></h1>
-    <p class="hero-sub">Tres experimentos. CSS, GSAP y Three.js. Cada uno con su código a la vista.</p>
-    <a class="cta" href="#demos">Ver experimentos ↓</a>
+  <!-- Experiencia -->
+  <main class="stage-tamara" id="experience" hidden>
+    <div class="letter" id="letter">
+      <div class="letter-head">
+        <span class="letter-from">Para mi amada</span>
+        <h2 class="letter-name">Tamara</h2>
+      </div>
+      <p class="letter-body" id="message">…</p>
+      <div class="letter-foot">
+        <span class="dots" id="dots" aria-hidden="true"></span>
+        <span class="heart-sign">♥</span>
+      </div>
+    </div>
+    <p class="hint" id="hint">toca para el siguiente</p>
   </main>
 
-  <section id="demos" class="demos">
-    <h2 class="section-title">Experimentos</h2>
-    <div class="grid">
-      <a class="card card--heart" href="demos/heart.html">
-        <div class="card-art" aria-hidden="true">
-          <span class="mini-heart">♥</span>
-        </div>
-        <div class="card-body">
-          <span class="card-tag">CSS · SVG</span>
-          <h3>Te Amo</h3>
-          <p>Un corazón que se dibuja solo, late y brilla en la oscuridad.</p>
-        </div>
-      </a>
+  <div class="toast" id="toast" hidden>Llegó algo nuevo para ti…</div>
 
-      <a class="card card--dark" href="demos/darkness.html">
-        <div class="card-art card-art--dark" aria-hidden="true">
-          <span class="four">404</span>
-        </div>
-        <div class="card-body">
-          <span class="card-tag">GSAP · Spotlight</span>
-          <h3>You hate darkness</h3>
-          <p>Una página 404 a oscuras. Mueve la linterna para encontrar la salida.</p>
-        </div>
-      </a>
-
-      <a class="card card--particles" href="demos/particles.html">
-        <div class="card-art card-art--particles" aria-hidden="true">
-          <span class="dots"></span>
-        </div>
-        <div class="card-body">
-          <span class="card-tag">Three.js · WebGL</span>
-          <h3>Particle Sphere</h3>
-          <p>Diez mil partículas en una esfera que reacciona a tu cursor.</p>
-        </div>
-      </a>
-    </div>
-  </section>
-
-  <footer class="foot">
-    <span>Fre-ya © 2026</span>
-    <span class="foot-dim">Hecho con HTML, CSS &amp; JavaScript</span>
-  </footer>
-
-  <script src="assets/js/main.js"></script>
+  <!-- SDK + datos + experiencia -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/tamara.js"></script>
 </body>
 </html>

@@ -1,51 +1,49 @@
-# Fre-ya · Creative Code Lab
+# Para Tamara 💖
 
-Portfolio de experimentos creativos en **HTML, CSS y JavaScript** puro.
-Cada demo se muestra junto a un fragmento de su código fuente en una ventana
-estilo macOS, sobre un fondo de "lluvia de código".
+Una web animada y única, hecha con amor. Tú escribes mensajes desde una
+página **secreta** y ella los ve aparecer en una experiencia romántica
+**en tiempo real** — sin que ella sepa que la escritura existe.
 
-## Demos
+Construida sobre la base de tres experimentos creativos (corazón animado,
+efecto linterna 404 y esfera de partículas), que siguen disponibles en `/demos`.
 
-| Demo | Técnica | Archivo |
-|------|---------|---------|
-| ♥ **Te Amo** — corazón que se dibuja, late y brilla | SVG `stroke-dasharray` + animaciones CSS | `demos/heart.html` |
-| 🔦 **You hate darkness** — página 404 a oscuras con linterna | GSAP + máscara radial CSS | `demos/darkness.html` |
-| ✨ **Particle Sphere** — 9 000 partículas en esfera Fibonacci | Three.js (WebGL) | `demos/particles.html` |
+## Cómo funciona
 
-## Estructura
+| Página | Para quién | Qué hace |
+|--------|-----------|----------|
+| `index.html` | **Tamara** | Carta que se escribe sola + cielo de corazones. Solo lee mensajes. Sin rastro de escritura. |
+| `para-cris-9ec6caa04a.html` | **Tú (secreto)** | Panel oculto para escribir, editar y borrar mensajes. |
+| `demos/*` | — | Los 3 experimentos base. |
 
-```
-.
-├── index.html            # Portada con navegación y tarjetas
-├── assets/
-│   ├── css/main.css      # Estilos compartidos (portada + demos)
-│   └── js/
-│       ├── main.js       # Lluvia de código de la portada
-│       ├── bg.js         # Fondo de código de las demos
-│       ├── darkness.js   # Lógica de la linterna (GSAP)
-│       └── particles.js  # Esfera de partículas (Three.js)
-└── demos/
-    ├── heart.html
-    ├── darkness.html
-    └── particles.html
-```
+Datos en **Supabase**: cualquiera puede *leer*, pero *escribir* exige una
+clave secreta que solo vive en tu página privada (funciones `SECURITY DEFINER`).
 
-## Cómo verlo
+## Puesta en marcha (3 pasos)
 
-No necesita build. Abre `index.html` en el navegador, o sirve la carpeta:
+1. **Base de datos** — en tu proyecto de Supabase abre *SQL Editor* y ejecuta
+   el contenido de [`db/setup.sql`](db/setup.sql).
+2. **Conexión** — copia en `assets/js/config.js`:
+   - `SUPABASE_URL` → *Project Settings → Data API → Project URL*
+   - `SUPABASE_ANON_KEY` → *Project Settings → API Keys → anon/public*
+3. **Despliega** (Vercel) y comparte con Tamara **solo** la URL principal.
+
+## Tu página secreta
+
+- URL: `/para-cris-9ec6caa04a`
+- La clave secreta está en `assets/js/secret.js` y debe coincidir con la de
+  `db/setup.sql`. Si cambias una, cambia la otra.
+- ⚠️ Mantén el repositorio **privado**: el archivo `secret.js` y el nombre de
+  la página secreta están en el código.
+
+## Local
+
+No necesita build:
 
 ```bash
-python3 -m http.server 8000
-# luego abre http://localhost:8000
+python3 -m http.server 8000   # http://localhost:8000
 ```
-
-> GSAP y Three.js se cargan por CDN, así que las demos 404 y de partículas
-> necesitan conexión a internet la primera vez.
 
 ## Stack
 
-- HTML5 + CSS3 (custom properties, grid, animaciones, máscaras)
-- JavaScript vanilla + Canvas 2D
-- [GSAP 3](https://gsap.com/) para la animación de la linterna
-- [Three.js r128](https://threejs.org/) para la esfera de partículas
-- Tipografías: Poppins, JetBrains Mono, Dancing Script
+HTML/CSS/JS puro · Canvas 2D · [Supabase](https://supabase.com) (datos + tiempo real)
+· GSAP y Three.js (en las demos) · Vercel (hosting).
