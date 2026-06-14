@@ -43,10 +43,13 @@
   let strokes = [];   // [[ [x,y] normalizados 0..1, ... ], ...]
   let current = null;
 
+  let sized = false;
   function sizePad() {
     const r = pad.getBoundingClientRect();
-    pad.width = Math.max(1, r.width * dpr);
-    pad.height = Math.max(1, r.height * dpr);
+    if (r.width < 2) return; // todavía no es visible: esperamos
+    pad.width = Math.round(r.width * dpr);
+    pad.height = Math.round(r.height * dpr);
+    sized = true;
     redrawPad();
   }
   function redrawPad() {
@@ -74,6 +77,8 @@
     return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
   }
   pad.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    if (!sized) sizePad();
     pad.setPointerCapture(e.pointerId);
     current = [padPos(e)];
     strokes.push(current);
@@ -81,16 +86,23 @@
   });
   pad.addEventListener("pointermove", (e) => {
     if (!current) return;
+    e.preventDefault();
     current.push(padPos(e));
     redrawPad();
   });
   const endStroke = () => { current = null; };
   pad.addEventListener("pointerup", endStroke);
   pad.addEventListener("pointercancel", endStroke);
+  pad.addEventListener("pointerleave", endStroke);
   document.getElementById("clear").onclick = () => { strokes = []; redrawPad(); };
   document.getElementById("undo").onclick = () => { strokes.pop(); redrawPad(); };
-  padBox.addEventListener("toggle", () => { if (padBox.open) sizePad(); });
-  window.addEventListener("resize", () => { if (padBox.open) sizePad(); });
+
+  // Dimensiona el lienzo de forma fiable en cuanto tiene tamaño real.
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => sizePad()).observe(pad);
+  }
+  padBox.addEventListener("toggle", () => { if (padBox.open) requestAnimationFrame(sizePad); });
+  window.addEventListener("resize", () => requestAnimationFrame(sizePad));
 
   function getDrawing() {
     return strokes.length ? { strokes } : null;
