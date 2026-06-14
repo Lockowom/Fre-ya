@@ -22,6 +22,7 @@
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 4000);
   camera.position.set(0, 6, 46);
+  let camDist = 46; // distancia base de cámara (responsiva, ver resize)
 
   // ---------- texturas radiales utilitarias ----------
   function radialTexture(stops, size = 256) {
@@ -718,9 +719,19 @@
 
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
+    const aspect = w / h;
     renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
+    // En vertical (móvil) ampliamos el campo de visión.
+    camera.fov = aspect < 0.8 ? 74 : aspect < 1.2 ? 64 : 55;
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
     if (composer) composer.setSize(w, h);
+    // Distancia que encuadra todo el sistema (radio ~38) en ambos ejes.
+    const R = 38;
+    const tan = Math.tan((camera.fov * Math.PI) / 180 / 2);
+    const fitW = R / (tan * Math.min(aspect, 3));
+    const fitH = R / tan;
+    camDist = Math.min(Math.max(fitW, fitH) + 6, 170);
   }
   window.addEventListener("resize", resize);
   resize();
@@ -812,9 +823,9 @@
     pointer.x += (pointer.tx - pointer.x) * 0.04;
     pointer.y += (pointer.ty - pointer.y) * 0.04;
     camAngle += dt * 0.02;
-    camera.position.x = Math.sin(camAngle) * 6 + pointer.x * 8;
-    camera.position.y = 6 + pointer.y * -4;
-    camera.position.z = 46 + Math.cos(camAngle) * 4;
+    camera.position.x = Math.sin(camAngle) * camDist * 0.12 + pointer.x * camDist * 0.16;
+    camera.position.y = camDist * 0.13 + pointer.y * -camDist * 0.09;
+    camera.position.z = camDist + Math.cos(camAngle) * camDist * 0.08;
     camera.lookAt(0, 0, 0);
 
     if (composer) composer.render();

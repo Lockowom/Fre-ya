@@ -11,6 +11,7 @@
   const toast = document.getElementById("toast");
   const drawCanvas = document.getElementById("drawCanvas");
   const skyToggle = document.getElementById("skyToggle");
+  const letterMin = document.getElementById("letterMin");
   let drawCtl = null;
   let hasReal = false;     // ¿hay mensajes reales (no de respaldo)?
   let letterShown = true;  // ¿se está mostrando la carta?
@@ -279,5 +280,9 @@
   skyToggle.addEventListener("click", (e) => {
     e.stopPropagation();
     setLetter(!letterShown);
+  });
+  letterMin.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setLetter(false);
   });
 })();
