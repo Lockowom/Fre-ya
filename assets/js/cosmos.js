@@ -864,11 +864,65 @@
   window.addEventListener("resize", resize);
   resize();
 
+  // ===================== VIAJE POR EL UNIVERSO (recorrido cinematográfico) =====================
+  const tour = { active: false, idx: 0, t: 0, stops: [] };
+  const _v = new THREE.Vector3();
+  const capEl = document.getElementById("tourCaption");
+  const nameEl = document.getElementById("tourName");
+  const lineEl = document.getElementById("tourCap");
+  function setCaption(stop) {
+    if (!capEl) return;
+    capEl.hidden = false;
+    capEl.classList.remove("show");
+    if (nameEl) nameEl.textContent = stop.name || "";
+    if (lineEl) lineEl.textContent = stop.cap || "";
+    requestAnimationFrame(() => capEl.classList.add("show"));
+  }
+  function buildStops() {
+    const s = [];
+    s.push({ kind: "obj", get: () => _v.set(0, 0, 0).clone(), dist: 16, dwell: 4.5, name: "El Sol", cap: "El centro de todo… como tú en mi vida." });
+    const names = ["Mercurio", "La Tierra", "Marte", "Júpiter", "Saturno"];
+    const caps = [
+      "Veloz, como mi corazón cuando te veo.",
+      "Nuestro hogar; aquí te encontré.",
+      "Rojo, como lo que enciendes en mí.",
+      "Enorme… pero menos que lo que siento por ti.",
+      "Con anillos, como la promesa que te haré.",
+    ];
+    planets.forEach((p, i) => s.push({
+      kind: "planet",
+      get: () => { p.group.getWorldPosition(_v); return _v.clone(); },
+      dist: p.cfg.r * 5 + 6, dwell: 4.5, name: names[i] || "Planeta", cap: caps[i] || "",
+    }));
+    s.push({ kind: "obj", get: () => BH_POS.clone(), dist: 26, dwell: 4, name: "Agujero negro", cap: "Mi amor por ti no tiene fondo." });
+    s.push({ kind: "obj", get: () => (clusterSys ? clusterSys.points.position.clone() : _v.set(0, -34, -42).clone()), dist: 42, dwell: 4, name: "Cúmulo estelar", cap: "Miles de estrellas, y todas te miran a ti." });
+    s.push({ kind: "obj", get: () => PULSAR_POS.clone(), dist: 16, dwell: 3.5, name: "Púlsar", cap: "Late por ti, sin parar." });
+    s.push({ kind: "far", get: () => _v.set(0, 150, -640).clone(), dist: 240, dwell: 6, name: "Tu nombre", cap: "Lo escribí en las estrellas. ♥" });
+    return s;
+  }
+  function startTour() {
+    tour.stops = buildStops();
+    tour.active = true; tour.idx = 0; tour.t = 0;
+    setCaption(tour.stops[0]);
+  }
+  function stopTour() {
+    tour.active = false;
+    if (capEl) { capEl.classList.remove("show"); setTimeout(() => { capEl.hidden = true; }, 600); }
+  }
+  window.FreyaCosmos = {
+    startTour, stopTour,
+    toggle: () => (tour.active ? stopTour() : startTour()),
+    isActive: () => tour.active,
+  };
+
   // ===================== BUCLE =====================
   const clock = new THREE.Clock();
   let camAngle = 0;
-  let entrance = 1;          // 1 = lejos (vuelo de entrada) -> 0 = posición final
   let fpsAccum = 0, fpsFrames = 0, qualityLowered = false;
+  const desiredPos = new THREE.Vector3();
+  const lookTarget = new THREE.Vector3(0, 0, 0);
+  const lookCur = new THREE.Vector3(0, 0, 0);
+  camera.position.set(0, camDist * 0.6, camDist * 3.0); // arranque lejano: vuelo de entrada
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -975,15 +1029,40 @@
     // cámara
     if (gradePass) gradePass.uniforms.uTime.value = t;
 
-    pointer.x += (pointer.tx - pointer.x) * 0.04;
-    pointer.y += (pointer.ty - pointer.y) * 0.04;
-    camAngle += dt * 0.02;
-    entrance += (0 - entrance) * dt * 0.7;          // vuelo de entrada suave
-    const D = camDist * (1 + entrance * 2.2);
-    camera.position.x = Math.sin(camAngle) * D * 0.12 + pointer.x * camDist * 0.16;
-    camera.position.y = D * 0.13 + pointer.y * -camDist * 0.09;
-    camera.position.z = D + Math.cos(camAngle) * camDist * 0.08;
-    camera.lookAt(0, 0, 0);
+    if (tour.active && tour.stops.length) {
+      // Recorrido cinematográfico: vuela y se detiene en cada objeto.
+      const stop = tour.stops[tour.idx];
+      const pos = stop.get();
+      lookTarget.copy(pos);
+      if (stop.kind === "planet") {
+        const len = pos.length() || 1;
+        desiredPos.copy(pos).multiplyScalar(Math.max(0.15, (len - stop.dist) / len));
+        desiredPos.y += stop.dist * 0.4;
+      } else {
+        desiredPos.set(pos.x + stop.dist * 0.25, pos.y + stop.dist * 0.35, pos.z + stop.dist);
+      }
+      tour.t += dt;
+      if (tour.t >= stop.dwell) {
+        tour.t = 0; tour.idx++;
+        if (tour.idx >= tour.stops.length) stopTour();
+        else setCaption(tour.stops[tour.idx]);
+      }
+    } else {
+      // Vista libre: auto-órbita + parallax al tacto/inclinación.
+      pointer.x += (pointer.tx - pointer.x) * 0.04;
+      pointer.y += (pointer.ty - pointer.y) * 0.04;
+      camAngle += dt * 0.02;
+      desiredPos.set(
+        Math.sin(camAngle) * camDist * 0.12 + pointer.x * camDist * 0.16,
+        camDist * 0.13 + pointer.y * -camDist * 0.09,
+        camDist + Math.cos(camAngle) * camDist * 0.08
+      );
+      lookTarget.set(0, 0, 0);
+    }
+    const camK = 1 - Math.exp(-dt * (tour.active ? 1.7 : 6));
+    camera.position.lerp(desiredPos, camK);
+    lookCur.lerp(lookTarget, camK);
+    camera.lookAt(lookCur);
 
     // calidad adaptativa: si va lento, aligera una vez
     fpsFrames++; fpsAccum += dt;

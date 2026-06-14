@@ -84,6 +84,41 @@ body {
 .sky-toggle:hover { transform: translateY(-2px); background: rgba(60, 15, 58, 0.6); }
 .sky-toggle:active { transform: scale(0.94); }
 
+/* Botón de viaje, apilado encima del de "ver el cielo" */
+.tour-btn { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+
+/* Panel de frases del recorrido */
+.tour-caption {
+  position: fixed;
+  left: 50%;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 12px);
+  z-index: 6;
+  width: min(620px, 90vw);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  pointer-events: none;
+}
+.tour-caption.show { opacity: 1; transform: translate(-50%, 0); }
+.tour-name {
+  font-family: "Dancing Script", cursive;
+  font-size: clamp(1.8rem, 7vw, 2.6rem);
+  background: linear-gradient(90deg, var(--rose), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 16px rgba(255, 93, 143, 0.4));
+}
+.tour-cap {
+  font-family: "Cormorant Garamond", serif;
+  font-style: italic;
+  font-size: clamp(1rem, 4vw, 1.3rem);
+  color: var(--ink);
+  margin-top: 2px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}
+
 .letter, .hint {
   transition: opacity 0.7s ease, transform 0.7s ease;
 }

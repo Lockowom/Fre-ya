@@ -12,6 +12,7 @@
   const drawCanvas = document.getElementById("drawCanvas");
   const skyToggle = document.getElementById("skyToggle");
   const letterMin = document.getElementById("letterMin");
+  const tourBtn = document.getElementById("tourBtn");
   let drawCtl = null;
   let hasReal = false;     // ¿hay mensajes reales (no de respaldo)?
   let letterShown = true;  // ¿se está mostrando la carta?
@@ -199,6 +200,7 @@
   // Mostrar/ocultar la carta para disfrutar el fondo 3D.
   function setLetter(visible) {
     letterShown = visible;
+    if (visible && window.FreyaCosmos && window.FreyaCosmos.isActive()) window.FreyaCosmos.stopTour();
     document.body.classList.toggle("letter-hidden", !visible);
     skyToggle.textContent = visible ? "✦" : "♥";
     skyToggle.setAttribute("aria-label", visible ? "Ver el cielo" : "Ver la carta");
@@ -270,6 +272,7 @@
       intro.style.display = "none";
       experience.hidden = false;
       skyToggle.hidden = false;
+      tourBtn.hidden = false;
       load();
       subscribe();
     }, 850);
@@ -284,5 +287,15 @@
   letterMin.addEventListener("click", (e) => {
     e.stopPropagation();
     setLetter(false);
+  });
+  tourBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!window.FreyaCosmos) return;
+    if (window.FreyaCosmos.isActive()) {
+      window.FreyaCosmos.stopTour();
+    } else {
+      setLetter(false);          // minimiza la carta para disfrutar el viaje
+      window.FreyaCosmos.startTour();
+    }
   });
 })();

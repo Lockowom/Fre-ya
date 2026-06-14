@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/tamara.css?v=4" />
+  <link rel="stylesheet" href="assets/css/tamara.css?v=5" />
 </head>
 <body>
   <canvas id="cosmos" aria-hidden="true"></canvas>
@@ -54,6 +54,12 @@
   </main>
 
   <button id="skyToggle" class="sky-toggle" type="button" aria-label="Ver el cielo" title="Ver el cielo" hidden>✦</button>
+  <button id="tourBtn" class="sky-toggle tour-btn" type="button" aria-label="Viaje por el universo" title="Viaje por el universo" hidden>🚀</button>
+
+  <div id="tourCaption" class="tour-caption" hidden>
+    <div class="tour-name" id="tourName"></div>
+    <div class="tour-cap" id="tourCap"></div>
+  </div>
 
   <div class="toast" id="toast" hidden>Llegó algo nuevo para ti…</div>
 
@@ -71,7 +77,7 @@
   <script src="assets/js/config.js?v=4"></script>
   <script src="assets/js/db.js?v=4"></script>
   <script src="assets/js/particle-draw.js?v=4"></script>
-  <script src="assets/js/cosmos.js?v=8"></script>
-  <script src="assets/js/tamara.js?v=4"></script>
+  <script src="assets/js/cosmos.js?v=9"></script>
+  <script src="assets/js/tamara.js?v=5"></script>
 </body>
 </html>
