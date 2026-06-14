@@ -89,7 +89,8 @@ body {
 }
 body.letter-hidden .letter,
 body.letter-hidden .hint {
-  opacity: 0;
+  animation: none !important; /* la animación de entrada (fill: both) ganaba sobre opacity:0 */
+  opacity: 0 !important;
   pointer-events: none;
   transform: translateY(14px) scale(0.985);
 }
