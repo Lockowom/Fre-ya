@@ -6,6 +6,6 @@
 //  Estos valores son públicos por diseño (la seguridad la da la RLS).
 // =====================================================================
 window.FREYA_CONFIG = {
-  SUPABASE_URL: "REEMPLAZAR_URL",      // ej: https://abcdxyz.supabase.co
-  SUPABASE_ANON_KEY: "REEMPLAZAR_ANON" // ej: eyJ... o sb_publishable_...
+  SUPABASE_URL: "https://lfgfmibbosodrgkqgqxu.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_638YQDwyGlBhxYvahTmIvA_tLkfvZqM"
 };
