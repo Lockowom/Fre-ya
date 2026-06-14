@@ -212,12 +212,17 @@
       new THREE.SphereGeometry(radius * 1.2, 48, 48),
       new THREE.ShaderMaterial({
         uniforms: { uColor: { value: new THREE.Color(color) } },
-        vertexShader: `varying vec3 vN; varying vec3 vV;
+        vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vWN; varying vec3 vWP;
           void main(){ vN=normalize(normalMatrix*normal);
             vec4 mv=modelViewMatrix*vec4(position,1.0); vV=normalize(-mv.xyz);
+            vWN=normalize(mat3(modelMatrix)*normal);
+            vWP=(modelMatrix*vec4(position,1.0)).xyz;
             gl_Position=projectionMatrix*mv; }`,
-        fragmentShader: `uniform vec3 uColor; varying vec3 vN; varying vec3 vV;
-          void main(){ float r=pow(1.0-max(dot(vN,vV),0.0),2.5); gl_FragColor=vec4(uColor,r*0.9); }`,
+        fragmentShader: `uniform vec3 uColor; varying vec3 vN; varying vec3 vV; varying vec3 vWN; varying vec3 vWP;
+          void main(){
+            float r = pow(1.0-max(dot(vN,vV),0.0), 2.5);
+            float day = clamp(dot(normalize(vWN), normalize(-vWP)), 0.0, 1.0); // lado iluminado
+            gl_FragColor = vec4(uColor, r*(0.22 + 0.95*day)); }`,
         side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
       })
     );
@@ -266,7 +271,18 @@
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(cfg.r * 1.35, cfg.r * 2.3, 96),
         new THREE.MeshBasicMaterial({
-          map: radialTexture([[0, "rgba(0,0,0,0)"], [0.5, "rgba(255,235,200,0)"], [0.56, "rgba(255,228,192,0.9)"], [0.66, "rgba(210,180,140,0.3)"], [0.72, "rgba(255,235,205,0.85)"], [0.85, "rgba(220,190,150,0.45)"], [1, "rgba(0,0,0,0)"]]),
+          map: radialTexture([
+            [0, "rgba(0,0,0,0)"],
+            [0.50, "rgba(255,235,200,0)"],
+            [0.55, "rgba(245,225,190,0.85)"],
+            [0.63, "rgba(210,185,150,0.55)"],
+            [0.685, "rgba(150,130,105,0.10)"],  // hueco de Cassini
+            [0.705, "rgba(120,100,80,0.04)"],
+            [0.72, "rgba(245,228,195,0.9)"],
+            [0.82, "rgba(220,195,155,0.5)"],
+            [0.90, "rgba(200,175,140,0.25)"],
+            [1, "rgba(0,0,0,0)"]
+          ], 512),
           side: THREE.DoubleSide, transparent: true, depthWrite: false,
         })
       );
@@ -646,7 +662,7 @@
     if (!window.WebAssembly) return;
     const coarse = (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || window.innerWidth < 820;
     const count = coarse ? 7000 : 14000;
-    fetch("assets/wasm/particles.wasm?v=3")
+    fetch("assets/wasm/particles.wasm?v=4")
       .then((r) => r.arrayBuffer())
       .then((b) => WebAssembly.instantiate(b, {}))
       .then(({ instance }) => {
@@ -694,6 +710,21 @@
     pointer.tx = Math.max(-1, Math.min(1, e.gamma / 35));
     pointer.ty = Math.max(-1, Math.min(1, (e.beta - 45) / 35));
   });
+
+  // Tacto -> atractor de la galaxia C++ (raycast al plano del disco).
+  const ndc = new THREE.Vector2();
+  let pressed = false;
+  function setNdc(e) {
+    ndc.x = (e.clientX / window.innerWidth) * 2 - 1;
+    ndc.y = -((e.clientY / window.innerHeight) * 2 - 1);
+  }
+  window.addEventListener("pointermove", setNdc);
+  window.addEventListener("pointerdown", (e) => { pressed = true; setNdc(e); });
+  window.addEventListener("pointerup", () => { pressed = false; });
+  window.addEventListener("pointercancel", () => { pressed = false; });
+  const ray = new THREE.Raycaster();
+  const galaxyPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const hitPt = new THREE.Vector3();
 
   // ===================== POST-PROCESADO (bloom + grade) =====================
   let composer = null, bloomPass = null, gradePass = null;
@@ -814,6 +845,16 @@
 
     // galaxia de polvo simulada en C++/WASM
     if (wasm && wGeo) {
+      if (wGalaxy && pressed) {
+        galaxyPlane.normal.set(0, 1, 0).applyQuaternion(wGalaxy.quaternion).normalize();
+        ray.setFromCamera(ndc, camera);
+        if (ray.ray.intersectPlane(galaxyPlane, hitPt)) {
+          wGalaxy.worldToLocal(hitPt);
+          wasm.setAttractor(hitPt.x, hitPt.y, hitPt.z, 1.0);
+        } else { wasm.setAttractor(0, 0, 0, 0); }
+      } else {
+        wasm.setAttractor(0, 0, 0, 0);
+      }
       wasm.step(dt, t);
       wGeo.attributes.position.needsUpdate = true;
       if (wGalaxyMat) wGalaxyMat.uniforms.uTime.value = t;
