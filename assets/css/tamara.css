@@ -24,10 +24,18 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-#sky {
+#cosmos {
   position: fixed;
   inset: 0;
   z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+#sky {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -104,10 +112,12 @@ body {
   overflow-y: auto;
   padding: clamp(26px, 5vw, 46px);
   border-radius: 22px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 166, 193, 0.25);
-  box-shadow: 0 30px 90px -30px rgba(0, 0, 0, 0.8), inset 0 0 60px rgba(255, 93, 143, 0.06);
-  backdrop-filter: blur(14px);
+  background:
+    linear-gradient(160deg, rgba(36, 10, 36, 0.58), rgba(18, 5, 22, 0.46)),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 166, 193, 0.28);
+  box-shadow: 0 30px 90px -30px rgba(0, 0, 0, 0.85), inset 0 0 60px rgba(255, 93, 143, 0.08);
+  backdrop-filter: blur(16px);
   animation: cardin 1s ease both;
 }
 @keyframes cardin { from { opacity: 0; transform: translateY(28px) scale(0.98); } to { opacity: 1; transform: none; } }

@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="assets/css/tamara.css" />
 </head>
 <body>
+  <canvas id="cosmos" aria-hidden="true"></canvas>
   <canvas id="sky" aria-hidden="true"></canvas>
 
   <!-- Intro -->
@@ -54,10 +55,12 @@
   <div class="toast" id="toast" hidden>Llegó algo nuevo para ti…</div>
 
   <!-- SDK + datos + experiencia -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/config.js"></script>
   <script src="assets/js/db.js"></script>
   <script src="assets/js/particle-draw.js"></script>
+  <script src="assets/js/cosmos.js"></script>
   <script src="assets/js/tamara.js"></script>
 </body>
 </html>
