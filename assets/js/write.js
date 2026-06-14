@@ -54,6 +54,14 @@
   }
   function redrawPad() {
     pctx.clearRect(0, 0, pad.width, pad.height);
+    if (!strokes.length) {
+      pctx.fillStyle = "rgba(255, 166, 193, 0.55)";
+      pctx.font = `${16 * dpr}px Poppins, sans-serif`;
+      pctx.textAlign = "center";
+      pctx.textBaseline = "middle";
+      pctx.fillText("Dibuja aquí ✏️", pad.width / 2, pad.height / 2);
+      return;
+    }
     pctx.lineWidth = 3 * dpr;
     pctx.lineCap = "round";
     pctx.lineJoin = "round";
