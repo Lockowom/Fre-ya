@@ -11,6 +11,14 @@
   <meta property="og:title" content="Para Tamara 💖" />
   <meta property="og:description" content="Un lugar hecho con amor, solo para ti." />
   <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://fre-ya.vercel.app/assets/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:url" content="https://fre-ya.vercel.app/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Para Tamara 💖" />
+  <meta name="twitter:description" content="Un lugar hecho con amor, solo para ti." />
+  <meta name="twitter:image" content="https://fre-ya.vercel.app/assets/og.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
@@ -33,6 +41,7 @@
         <span class="letter-from">Para mi amada</span>
         <h2 class="letter-name">Tamara</h2>
       </div>
+      <canvas class="draw-canvas" id="drawCanvas" hidden aria-hidden="true"></canvas>
       <p class="letter-body" id="message">…</p>
       <div class="letter-foot">
         <span class="dots" id="dots" aria-hidden="true"></span>
@@ -48,6 +57,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/config.js"></script>
   <script src="assets/js/db.js"></script>
+  <script src="assets/js/particle-draw.js"></script>
   <script src="assets/js/tamara.js"></script>
 </body>
 </html>

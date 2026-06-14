@@ -66,6 +66,53 @@ textarea:focus { border-color: var(--rose); }
 .btn.ghost { background: none; border: 1px solid rgba(255,255,255,0.18); color: var(--dim); padding: 6px 12px; font-size: 0.8rem; }
 .btn.ghost:hover { color: var(--ink); }
 
+.draw-pad {
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #160b1d;
+}
+.draw-pad summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--dim);
+  list-style: none;
+}
+.draw-pad summary::-webkit-details-marker { display: none; }
+.draw-pad[open] summary { color: var(--ink); margin-bottom: 10px; }
+.pad-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.pad-hint { color: var(--dim); font-size: 0.74rem; flex: 1; min-width: 160px; }
+.pad-actions { display: flex; gap: 8px; }
+.pad {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 320px;
+  margin: 0 auto;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 45%, #21122a, #160b1d);
+  border: 1px dashed rgba(255, 93, 143, 0.3);
+  touch-action: none;
+  cursor: crosshair;
+}
+.badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  color: var(--rose);
+  border: 1px solid rgba(255, 93, 143, 0.4);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 8px;
+}
+
 .status { margin: 10px 2px 0; font-size: 0.82rem; min-height: 1.1em; }
 .status.ok { color: #67e0a3; }
 .status.err { color: #ff7a7a; }

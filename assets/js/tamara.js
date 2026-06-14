@@ -9,6 +9,8 @@
   const dotsEl = document.getElementById("dots");
   const hintEl = document.getElementById("hint");
   const toast = document.getElementById("toast");
+  const drawCanvas = document.getElementById("drawCanvas");
+  let drawCtl = null;
 
   // Mensajes de respaldo si aún no hay base de datos / mensajes.
   const FALLBACK = [
@@ -24,6 +26,7 @@
   const canvas = document.getElementById("sky");
   const ctx = canvas.getContext("2d");
   let hearts = [];
+  let blooms = [];
   function resize() {
     canvas.width = innerWidth;
     canvas.height = innerHeight;
@@ -54,6 +57,60 @@
     ctx.fill();
     ctx.restore();
   }
+  // --- Flores ocasionales: rosas y girasoles ---
+  function makeBloom() {
+    return {
+      type: Math.random() < 0.5 ? "rose" : "sun",
+      x: Math.random() * canvas.width,
+      y: canvas.height + 40,
+      s: 0.9 + Math.random() * 0.8,
+      sp: 0.25 + Math.random() * 0.5,
+      sway: Math.random() * Math.PI * 2,
+      rot: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.01,
+      a: 0.55 + Math.random() * 0.35,
+    };
+  }
+  function drawRose(b) {
+    ctx.globalAlpha = b.a;
+    // pétalos en espiral
+    for (let i = 0; i < 5; i++) {
+      const ang = (i / 5) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(ang) * 9, Math.sin(ang) * 9, 11, 7, ang, 0, Math.PI * 2);
+      ctx.fillStyle = i % 2 ? "#ff7aa8" : "#ff5d8f";
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#d63b6e";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  function drawSun(b) {
+    ctx.globalAlpha = b.a;
+    for (let i = 0; i < 12; i++) {
+      const ang = (i / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(ang) * 13, Math.sin(ang) * 13, 9, 4.5, ang, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffce4d";
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.fillStyle = "#7a4a22";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  function drawBloom(b) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.rot);
+    ctx.scale(b.s, b.s);
+    b.type === "rose" ? drawRose(b) : drawSun(b);
+    ctx.restore();
+  }
+
   function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (hearts.length < 40 && Math.random() > 0.85) hearts.push(makeHeart());
@@ -64,6 +121,18 @@
       drawHeart(h);
     });
     hearts = hearts.filter((h) => h.y > -30);
+
+    // de vez en cuando, una flor
+    if (blooms.length < 9 && Math.random() > 0.992) blooms.push(makeBloom());
+    blooms.forEach((b) => {
+      b.y -= b.sp;
+      b.sway += 0.015;
+      b.x += Math.sin(b.sway) * 0.5;
+      b.rot += b.spin;
+      drawBloom(b);
+    });
+    blooms = blooms.filter((b) => b.y > -60);
+
     requestAnimationFrame(loop);
   }
   addEventListener("resize", resize);
@@ -103,6 +172,17 @@
     if (!messages.length) return;
     index = (i + messages.length) % messages.length;
     renderDots();
+
+    // Dibujo (si lo hay): se forma con partículas.
+    if (drawCtl) { drawCtl.stop(); drawCtl = null; }
+    const strokes = window.FreyaDraw && window.FreyaDraw.normalize(messages[index].drawing);
+    if (strokes) {
+      drawCanvas.hidden = false;
+      drawCtl = window.FreyaDraw.render(drawCanvas, strokes);
+    } else {
+      drawCanvas.hidden = true;
+    }
+
     typeMessage(messages[index].body || messages[index]);
     hintEl.style.display = messages.length > 1 ? "" : "none";
   }

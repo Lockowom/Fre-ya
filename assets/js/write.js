@@ -35,6 +35,71 @@
     countEl.textContent = bodyEl.value.length;
   });
 
+  // ---------------- Lienzo de dibujo ----------------
+  const pad = document.getElementById("pad");
+  const pctx = pad.getContext("2d");
+  const padBox = document.getElementById("drawPad");
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let strokes = [];   // [[ [x,y] normalizados 0..1, ... ], ...]
+  let current = null;
+
+  function sizePad() {
+    const r = pad.getBoundingClientRect();
+    pad.width = Math.max(1, r.width * dpr);
+    pad.height = Math.max(1, r.height * dpr);
+    redrawPad();
+  }
+  function redrawPad() {
+    pctx.clearRect(0, 0, pad.width, pad.height);
+    pctx.lineWidth = 3 * dpr;
+    pctx.lineCap = "round";
+    pctx.lineJoin = "round";
+    pctx.strokeStyle = "#ff7aa8";
+    pctx.fillStyle = "#ff7aa8";
+    for (const s of strokes) {
+      if (s.length === 1) {
+        pctx.beginPath();
+        pctx.arc(s[0][0] * pad.width, s[0][1] * pad.height, 2 * dpr, 0, Math.PI * 2);
+        pctx.fill();
+        continue;
+      }
+      pctx.beginPath();
+      pctx.moveTo(s[0][0] * pad.width, s[0][1] * pad.height);
+      for (let i = 1; i < s.length; i++) pctx.lineTo(s[i][0] * pad.width, s[i][1] * pad.height);
+      pctx.stroke();
+    }
+  }
+  function padPos(e) {
+    const r = pad.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+  }
+  pad.addEventListener("pointerdown", (e) => {
+    pad.setPointerCapture(e.pointerId);
+    current = [padPos(e)];
+    strokes.push(current);
+    redrawPad();
+  });
+  pad.addEventListener("pointermove", (e) => {
+    if (!current) return;
+    current.push(padPos(e));
+    redrawPad();
+  });
+  const endStroke = () => { current = null; };
+  pad.addEventListener("pointerup", endStroke);
+  pad.addEventListener("pointercancel", endStroke);
+  document.getElementById("clear").onclick = () => { strokes = []; redrawPad(); };
+  document.getElementById("undo").onclick = () => { strokes.pop(); redrawPad(); };
+  padBox.addEventListener("toggle", () => { if (padBox.open) sizePad(); });
+  window.addEventListener("resize", () => { if (padBox.open) sizePad(); });
+
+  function getDrawing() {
+    return strokes.length ? { strokes } : null;
+  }
+  function resetDrawing() {
+    strokes = [];
+    redrawPad();
+  }
+
   async function refresh() {
     try {
       const data = await window.FreyaDB.list();
@@ -65,6 +130,12 @@
         </div>`;
       li.querySelector("p").textContent = m.body;
       li.querySelector("time").textContent = fmt(m.created_at);
+      if (m.drawing) {
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = "🎨 con dibujo";
+        li.querySelector("time").after(badge);
+      }
       li.querySelector('[data-act="edit"]').onclick = () => startEdit(li, m);
       li.querySelector('[data-act="del"]').onclick = () => del(m);
       listEl.appendChild(li);
@@ -116,9 +187,10 @@
     if (!v) { setStatus("Escribe algo primero ♥", "err"); return; }
     sendBtn.disabled = true;
     try {
-      await window.FreyaDB.post(SECRET, v);
+      await window.FreyaDB.post(SECRET, v, getDrawing());
       bodyEl.value = "";
       countEl.textContent = "0";
+      resetDrawing();
       setStatus("Enviado. Tamara ya puede verlo ♥", "ok");
       refresh();
     } catch (e) {

@@ -17,6 +17,7 @@
 create table if not exists public.messages (
   id          uuid primary key default gen_random_uuid(),
   body        text not null check (char_length(body) between 1 and 2000),
+  drawing     jsonb,
   created_at  timestamptz not null default now()
 );
 
@@ -43,7 +44,7 @@ end $$;
 -- NOTA: la clave secreta de abajo es la misma que está en tu página
 -- privada. Si la cambias aquí, cámbiala también allí.
 
-create or replace function public.post_message(p_secret text, p_body text)
+create or replace function public.post_message(p_secret text, p_body text, p_drawing jsonb default null)
 returns public.messages
 language plpgsql security definer set search_path = public as $$
 declare result public.messages;
@@ -51,7 +52,7 @@ begin
   if p_secret is distinct from '82dacfbfa0e526f3827be627517818ce18c90f1c4e377f18' then
     raise exception 'no autorizado';
   end if;
-  insert into public.messages (body) values (p_body) returning * into result;
+  insert into public.messages (body, drawing) values (p_body, p_drawing) returning * into result;
   return result;
 end $$;
 
@@ -78,7 +79,7 @@ begin
 end $$;
 
 -- Permitir ejecutar las funciones desde el cliente (validan el secreto).
-grant execute on function public.post_message(text, text)        to anon, authenticated;
+grant execute on function public.post_message(text, text, jsonb) to anon, authenticated;
 grant execute on function public.edit_message(text, uuid, text)  to anon, authenticated;
 grant execute on function public.remove_message(text, uuid)      to anon, authenticated;
 

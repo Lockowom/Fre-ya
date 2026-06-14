@@ -44,10 +44,11 @@
     },
 
     // --- Operaciones protegidas por la clave secreta (página privada) ---
-    async post(secret, body) {
+    async post(secret, body, drawing) {
       const { data, error } = await client.rpc("post_message", {
         p_secret: secret,
         p_body: body,
+        p_drawing: drawing || null,
       });
       if (error) throw error;
       return data;

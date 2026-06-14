@@ -19,6 +19,19 @@
 
     <section class="composer">
       <textarea id="body" rows="4" maxlength="2000" placeholder="Escribe algo bonito para ella…"></textarea>
+
+      <details class="draw-pad" id="drawPad">
+        <summary>🎨 Añadir un dibujo (opcional)</summary>
+        <div class="pad-tools">
+          <span class="pad-hint">Dibuja con el dedo o el ratón. Ella lo verá formándose con partículas.</span>
+          <span class="pad-actions">
+            <button type="button" class="btn ghost" id="undo">Deshacer</button>
+            <button type="button" class="btn ghost" id="clear">Limpiar</button>
+          </span>
+        </div>
+        <canvas id="pad" class="pad"></canvas>
+      </details>
+
       <div class="composer-row">
         <span class="count"><span id="count">0</span>/2000</span>
         <button id="send" class="btn">Enviar a Tamara ♥</button>

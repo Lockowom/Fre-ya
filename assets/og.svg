@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#240a2e"/>
+      <stop offset="0.55" stop-color="#3d0f3a"/>
+      <stop offset="1" stop-color="#120516"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="38%" r="55%">
+      <stop offset="0" stop-color="#5a1240" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#5a1240" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="name" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5d8f"/>
+      <stop offset="0.5" stop-color="#ffd9a0"/>
+      <stop offset="1" stop-color="#ffa6c1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <path transform="translate(120,110) scale(2.2)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ff5d8f" opacity="0.35"/>
+<path transform="translate(1050,130) scale(3)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ffa6c1" opacity="0.3"/>
+<path transform="translate(980,460) scale(2)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ffd9a0" opacity="0.4"/>
+<path transform="translate(200,480) scale(2.6)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ff5d8f" opacity="0.28"/>
+<path transform="translate(620,70) scale(1.6)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ffa6c1" opacity="0.5"/>
+<path transform="translate(1120,320) scale(1.8)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ff5d8f" opacity="0.4"/>
+<path transform="translate(80,300) scale(1.6)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ffd9a0" opacity="0.35"/>
+<path transform="translate(700,560) scale(2)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ffa6c1" opacity="0.3"/>
+
+  <text x="600" y="250" text-anchor="middle"
+    font-family="Georgia, 'DejaVu Serif', serif" font-style="italic"
+    font-size="34" letter-spacing="10" fill="#ffa6c1">PARA MI AMADA</text>
+
+  <text x="600" y="380" text-anchor="middle"
+    font-family="Georgia, 'DejaVu Serif', serif" font-weight="bold"
+    font-size="150" fill="url(#name)">Tamara</text>
+
+  <text x="600" y="470" text-anchor="middle"
+    font-family="Georgia, 'DejaVu Serif', serif" font-style="italic"
+    font-size="32" fill="#fce9f1" opacity="0.85">hecho con amor, solo para ti</text>
+
+  <path transform="translate(600,510) scale(2.4)"
+    d="M0 3 C-5 -3 -12 0 -12 5 C-12 11 -5 14 0 19 C5 14 12 11 12 5 C12 0 5 -3 0 3 Z"
+    fill="#ff5d8f" opacity="0.95"/>
+</svg>
