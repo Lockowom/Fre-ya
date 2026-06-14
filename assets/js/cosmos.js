@@ -17,7 +17,7 @@
   } catch (e) { return; }
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(DPR);
-  renderer.setClearColor(0x000000, 0);
+  renderer.setClearColor(0x120516, 1);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 4000);
@@ -60,6 +60,30 @@
     float fbm(vec3 p){ float v=0.0,a=0.5; for(int i=0;i<6;i++){ v+=a*noise(p); p*=2.03; a*=0.5; } return v; }
     float ridged(vec3 p){ float v=0.0,a=0.5; for(int i=0;i<5;i++){ v+=a*(1.0-abs(noise(p))); p*=2.05; a*=0.5; } return v; }
   `;
+
+  // ===================== CIELO DE FONDO (domo con degradado) =====================
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(1800, 32, 32),
+    new THREE.ShaderMaterial({
+      vertexShader: `varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: NOISE + `
+        varying vec3 vP;
+        void main(){
+          vec3 d = normalize(vP);
+          float h = d.y*0.5 + 0.5;
+          vec3 top = vec3(0.05,0.015,0.07);
+          vec3 horizon = vec3(0.21,0.05,0.20);
+          vec3 col = mix(horizon, top, smoothstep(0.1,0.7,h));
+          col += vec3(0.35,0.07,0.26) * pow(max(0.0, dot(d, normalize(vec3(0.6,-0.5,0.3)))), 3.0) * 0.6;
+          col += vec3(0.10,0.05,0.20) * pow(max(0.0, dot(d, normalize(vec3(-0.5,0.4,-0.4)))), 4.0);
+          // polvo estelar muy tenue
+          col += vec3(0.04) * smoothstep(0.6,0.9, fbm(d*40.0));
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+      side: THREE.BackSide, depthWrite: false,
+    })
+  );
+  scene.add(sky);
 
   // ===================== SOL =====================
   const sunUniforms = { uTime: { value: 0 } };
@@ -120,7 +144,7 @@
   const planetFrag = NOISE + `
     uniform vec3 uA; uniform vec3 uB; uniform vec3 uC;
     uniform float uTime; uniform float uSeed; uniform float uBands;
-    uniform float uNight; uniform float uIce;
+    uniform float uNight; uniform float uIce; uniform float uWater;
     varying vec3 vWN; varying vec3 vP; varying vec3 vWP;
     void main(){
       vec3 p = normalize(vP);
@@ -141,12 +165,22 @@
         float ice = smoothstep(0.70,0.86, lat + fbm(p*6.0)*0.06);
         col = mix(col, vec3(0.95,0.98,1.0), ice);
       }
-      vec3 N = normalize(vWN);
+      // relieve: perturbar la normal con el gradiente de altura (montañas que sombrean)
+      float e = 0.015;
+      float h0 = fbm(p*6.0 + uSeed);
+      vec3 grad = vec3(
+        fbm((p+vec3(e,0.0,0.0))*6.0 + uSeed) - h0,
+        fbm((p+vec3(0.0,e,0.0))*6.0 + uSeed) - h0,
+        fbm((p+vec3(0.0,0.0,e))*6.0 + uSeed) - h0) / e;
+      float relief = (uBands>0.5) ? 0.04 : 0.14;
+      vec3 N = normalize(vWN - grad*relief);
       vec3 L = normalize(-vWP);                 // el sol está en el origen
       vec3 V = normalize(cameraPosition - vWP);
       vec3 H = normalize(L + V);
       float diff = clamp(dot(N,L),0.0,1.0);
-      float spec = (uBands>0.5?0.0:1.0) * pow(max(dot(N,H),0.0), 28.0) * diff * 0.5;
+      // brillo especular: fuerte en el agua, nulo en gigantes gaseosos
+      float water = (uWater>0.5) ? (1.0 - smoothstep(0.42,0.52,n)) : (uBands>0.5 ? 0.0 : 0.4);
+      float spec = water * pow(max(dot(N,H),0.0), 45.0) * diff * 0.9;
       float term = smoothstep(0.0,0.3,diff);
       vec3 lit = col*(0.05 + diff) + vec3(1.0)*spec + vec3(1.0,0.5,0.3)*pow(1.0-term,3.0)*0.18;
       // luces nocturnas (ciudades)
@@ -191,7 +225,7 @@
       uniforms: {
         uA: { value: new THREE.Color(cfg.a) }, uB: { value: new THREE.Color(cfg.b) }, uC: { value: new THREE.Color(cfg.c) },
         uTime: { value: 0 }, uSeed: { value: Math.random() * 10 }, uBands: { value: cfg.bands || 0 },
-        uNight: { value: cfg.night ? 1 : 0 }, uIce: { value: cfg.ice ? 1 : 0 },
+        uNight: { value: cfg.night ? 1 : 0 }, uIce: { value: cfg.ice ? 1 : 0 }, uWater: { value: cfg.water ? 1 : 0 },
       },
       vertexShader: planetVert, fragmentShader: planetFrag,
     });
@@ -199,7 +233,7 @@
 
   const PLANETS = [
     { r: 0.9, dist: 9,  speed: 0.55, tilt: 0.15, a: 0x8a5a3c, b: 0xd9a066, c: 0xffe0b0, atm: 0xffb070 },
-    { r: 1.5, dist: 14, speed: 0.34, tilt: 0.40, a: 0x16407a, b: 0x2f8f5a, c: 0x9be7ff, atm: 0x6fc8ff, clouds: true, night: true, ice: true, moons: 1 }, // tierra
+    { r: 1.5, dist: 14, speed: 0.34, tilt: 0.40, a: 0x16407a, b: 0x2f8f5a, c: 0x9be7ff, atm: 0x6fc8ff, clouds: true, night: true, ice: true, water: true, moons: 1 }, // tierra
     { r: 1.1, dist: 18, speed: 0.27, tilt: 0.50, a: 0x8f2f23, b: 0xc9603a, c: 0xffc28a, atm: 0xff8a6a, ice: true }, // marte
     { r: 2.6, dist: 25, speed: 0.16, tilt: 0.20, a: 0xb98f5a, b: 0xe8c896, c: 0xfff0d0, atm: 0xf6dca0, bands: 1, moons: 2 }, // júpiter
     { r: 2.0, dist: 34, speed: 0.11, tilt: 0.55, a: 0xc7b07a, b: 0xe6d6a8, c: 0xfff4d8, atm: 0xe9dcae, bands: 1, ring: true }, // saturno
@@ -459,10 +493,46 @@
     pointer.ty = Math.max(-1, Math.min(1, (e.beta - 45) / 35));
   });
 
+  // ===================== POST-PROCESADO (bloom + grade) =====================
+  let composer = null;
+  if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    const bloom = new THREE.UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.85,  // fuerza
+      0.55,  // radio
+      0.78   // umbral (solo brilla lo más luminoso)
+    );
+    composer.addPass(bloom);
+
+    if (THREE.ShaderPass) {
+      const grade = new THREE.ShaderPass({
+        uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
+        vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: `
+          uniform sampler2D tDiffuse; varying vec2 vUv;
+          void main(){
+            vec3 c = texture2D(tDiffuse, vUv).rgb;
+            // realce de saturación
+            float l = dot(c, vec3(0.299,0.587,0.114));
+            c = mix(vec3(l), c, 1.18);
+            // viñeta suave
+            vec2 q = vUv - 0.5;
+            float vig = smoothstep(0.85, 0.35, length(q));
+            c *= mix(0.78, 1.0, vig);
+            gl_FragColor = vec4(c, 1.0);
+          }`,
+      });
+      composer.addPass(grade);
+    }
+  }
+
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
+    if (composer) composer.setSize(w, h);
   }
   window.addEventListener("resize", resize);
   resize();
@@ -541,7 +611,8 @@
     camera.position.z = 46 + Math.cos(camAngle) * 4;
     camera.lookAt(0, 0, 0);
 
-    renderer.render(scene, camera);
+    if (composer) composer.render();
+    else renderer.render(scene, camera);
   }
   animate();
 })();
