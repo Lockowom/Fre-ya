@@ -641,7 +641,7 @@
 
   // ===================== GALAXIA DE POLVO (C++ -> WebAssembly) =====================
   // La física de miles de partículas se calcula en C++ compilado a WASM.
-  let wasm = null, wGeo = null, wGalaxy = null;
+  let wasm = null, wGeo = null, wGalaxy = null, wGalaxyMat = null;
   (function loadWasm() {
     if (!window.WebAssembly) return;
     const coarse = (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || window.innerWidth < 820;
@@ -656,14 +656,25 @@
         const n = e.getCount();
         const pos = new Float32Array(e.memory.buffer, e.getPositions(), n * 3);
         const col = new Float32Array(e.memory.buffer, e.getColors(), n * 3);
+        const sizes = new Float32Array(n), phases = new Float32Array(n);
+        for (let i = 0; i < n; i++) { sizes[i] = 0.5 + Math.random() * 2.4; phases[i] = Math.random() * 6.28; }
         wGeo = new THREE.BufferGeometry();
         wGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-        wGeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
-        wGalaxy = new THREE.Points(wGeo, new THREE.PointsMaterial({
-          size: 0.7, vertexColors: true, transparent: true, opacity: 0.8, depthWrite: false,
-          blending: THREE.AdditiveBlending, sizeAttenuation: true,
-          map: radialTexture([[0, "rgba(255,255,255,1)"], [0.5, "rgba(255,210,235,0.6)"], [1, "rgba(0,0,0,0)"]]),
-        }));
+        wGeo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+        wGeo.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+        wGeo.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
+        wGalaxyMat = new THREE.ShaderMaterial({
+          uniforms: { uTime: { value: 0 }, uTex: { value: starTex } },
+          vertexShader: `attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+            varying vec3 vColor; varying float vTw; uniform float uTime;
+            void main(){ vColor=aColor; vTw=0.55+0.45*sin(uTime*1.8+aPhase);
+              vec4 mv=modelViewMatrix*vec4(position,1.0);
+              gl_PointSize=aSize*(0.6+0.9*vTw)*(330.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+          fragmentShader: `uniform sampler2D uTex; varying vec3 vColor; varying float vTw;
+            void main(){ vec4 t=texture2D(uTex, gl_PointCoord); gl_FragColor=vec4(vColor*(0.55+0.85*vTw), t.a); }`,
+          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        });
+        wGalaxy = new THREE.Points(wGeo, wGalaxyMat);
         wGalaxy.rotation.set(1.12, 0.0, 0.22);
         scene.add(wGalaxy);
         wasm = e;
@@ -685,37 +696,47 @@
   });
 
   // ===================== POST-PROCESADO (bloom + grade) =====================
-  let composer = null;
+  let composer = null, bloomPass = null, gradePass = null;
   if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
     composer = new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
-    const bloom = new THREE.UnrealBloomPass(
+    bloomPass = new THREE.UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
       0.85,  // fuerza
       0.55,  // radio
       0.78   // umbral (solo brilla lo más luminoso)
     );
-    composer.addPass(bloom);
+    composer.addPass(bloomPass);
 
     if (THREE.ShaderPass) {
-      const grade = new THREE.ShaderPass({
+      gradePass = new THREE.ShaderPass({
         uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
         vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
         fragmentShader: `
-          uniform sampler2D tDiffuse; varying vec2 vUv;
+          uniform sampler2D tDiffuse; uniform float uTime; varying vec2 vUv;
+          float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
           void main(){
-            vec3 c = texture2D(tDiffuse, vUv).rgb;
+            vec2 q = vUv - 0.5;
+            float d = dot(q, q);
+            // aberración cromática sutil hacia los bordes
+            vec2 off = q * d * 0.02;
+            float r = texture2D(tDiffuse, vUv + off).r;
+            float g = texture2D(tDiffuse, vUv).g;
+            float b = texture2D(tDiffuse, vUv - off).b;
+            vec3 c = vec3(r, g, b);
             // realce de saturación
             float l = dot(c, vec3(0.299,0.587,0.114));
-            c = mix(vec3(l), c, 1.18);
-            // viñeta suave
-            vec2 q = vUv - 0.5;
-            float vig = smoothstep(0.85, 0.35, length(q));
-            c *= mix(0.78, 1.0, vig);
+            c = mix(vec3(l), c, 1.2);
+            // viñeta
+            float vig = smoothstep(0.9, 0.3, length(q));
+            c *= mix(0.72, 1.0, vig);
+            // grano de película
+            float grain = (hash(vUv * vec2(1280.0, 720.0) + uTime) - 0.5) * 0.045;
+            c += grain;
             gl_FragColor = vec4(c, 1.0);
           }`,
       });
-      composer.addPass(grade);
+      composer.addPass(gradePass);
     }
   }
 
@@ -741,6 +762,8 @@
   // ===================== BUCLE =====================
   const clock = new THREE.Clock();
   let camAngle = 0;
+  let entrance = 1;          // 1 = lejos (vuelo de entrada) -> 0 = posición final
+  let fpsAccum = 0, fpsFrames = 0, qualityLowered = false;
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -793,6 +816,7 @@
     if (wasm && wGeo) {
       wasm.step(dt, t);
       wGeo.attributes.position.needsUpdate = true;
+      if (wGalaxyMat) wGalaxyMat.uniforms.uTime.value = t;
     }
 
     // cometa en órbita elíptica inclinada + cola apuntando lejos del sol
@@ -822,13 +846,31 @@
     }
 
     // cámara
+    if (gradePass) gradePass.uniforms.uTime.value = t;
+
     pointer.x += (pointer.tx - pointer.x) * 0.04;
     pointer.y += (pointer.ty - pointer.y) * 0.04;
     camAngle += dt * 0.02;
-    camera.position.x = Math.sin(camAngle) * camDist * 0.12 + pointer.x * camDist * 0.16;
-    camera.position.y = camDist * 0.13 + pointer.y * -camDist * 0.09;
-    camera.position.z = camDist + Math.cos(camAngle) * camDist * 0.08;
+    entrance += (0 - entrance) * dt * 0.7;          // vuelo de entrada suave
+    const D = camDist * (1 + entrance * 2.2);
+    camera.position.x = Math.sin(camAngle) * D * 0.12 + pointer.x * camDist * 0.16;
+    camera.position.y = D * 0.13 + pointer.y * -camDist * 0.09;
+    camera.position.z = D + Math.cos(camAngle) * camDist * 0.08;
     camera.lookAt(0, 0, 0);
+
+    // calidad adaptativa: si va lento, aligera una vez
+    fpsFrames++; fpsAccum += dt;
+    if (fpsAccum >= 2.0) {
+      const fps = fpsFrames / fpsAccum;
+      fpsAccum = 0; fpsFrames = 0;
+      if (!qualityLowered && fps < 38) {
+        qualityLowered = true;
+        renderer.setPixelRatio(1);
+        if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+        if (bloomPass) bloomPass.strength = 0.5;
+        console.log("[cosmos] modo ligero activado (" + fps.toFixed(0) + " fps)");
+      }
+    }
 
     if (composer) composer.render();
     else renderer.render(scene, camera);
