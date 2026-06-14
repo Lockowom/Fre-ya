@@ -636,6 +636,39 @@
     sat.ringDust = dust;
   })();
 
+  // ===================== GALAXIA DE POLVO (C++ -> WebAssembly) =====================
+  // La física de miles de partículas se calcula en C++ compilado a WASM.
+  let wasm = null, wGeo = null, wGalaxy = null;
+  (function loadWasm() {
+    if (!window.WebAssembly) return;
+    const coarse = (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || window.innerWidth < 820;
+    const count = coarse ? 7000 : 14000;
+    fetch("assets/wasm/particles.wasm")
+      .then((r) => r.arrayBuffer())
+      .then((b) => WebAssembly.instantiate(b, {}))
+      .then(({ instance }) => {
+        const e = instance.exports;
+        e.init(count, 30.0, 130.0, (Math.random() * 1e9) >>> 0);
+        e.step(0.016, 0.0);
+        const n = e.getCount();
+        const pos = new Float32Array(e.memory.buffer, e.getPositions(), n * 3);
+        const col = new Float32Array(e.memory.buffer, e.getColors(), n * 3);
+        wGeo = new THREE.BufferGeometry();
+        wGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        wGeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+        wGalaxy = new THREE.Points(wGeo, new THREE.PointsMaterial({
+          size: 0.7, vertexColors: true, transparent: true, opacity: 0.8, depthWrite: false,
+          blending: THREE.AdditiveBlending, sizeAttenuation: true,
+          map: radialTexture([[0, "rgba(255,255,255,1)"], [0.5, "rgba(255,210,235,0.6)"], [1, "rgba(0,0,0,0)"]]),
+        }));
+        wGalaxy.rotation.set(1.12, 0.0, 0.22);
+        scene.add(wGalaxy);
+        wasm = e;
+        console.log("[cosmos] galaxia C++/WASM activa:", n, "partículas");
+      })
+      .catch(() => { /* sin WASM: la escena 3D sigue funcionando igual */ });
+  })();
+
   // ===================== INTERACCIÓN =====================
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   window.addEventListener("pointermove", (e) => {
@@ -742,6 +775,12 @@
       sp.material.opacity = 0.55 * k;
     });
     if (planets[4] && planets[4].ringDust) planets[4].ringDust.rotation.z += dt * 0.05;
+
+    // galaxia de polvo simulada en C++/WASM
+    if (wasm && wGeo) {
+      wasm.step(dt, t);
+      wGeo.attributes.position.needsUpdate = true;
+    }
 
     // cometa en órbita elíptica inclinada + cola apuntando lejos del sol
     cometAngle += dt * 0.18;
