@@ -39,6 +39,38 @@ body {
   pointer-events: none;
 }
 
+/* ---------------- Botón "ver el cielo" ---------------- */
+.sky-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 6;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 166, 193, 0.45);
+  background: rgba(36, 10, 36, 0.5);
+  backdrop-filter: blur(8px);
+  color: var(--gold);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8);
+  transition: transform 0.2s ease, opacity 0.3s ease, background 0.2s ease;
+}
+.sky-toggle:hover { transform: translateY(-2px); background: rgba(60, 15, 58, 0.6); }
+.sky-toggle:active { transform: scale(0.94); }
+
+.letter, .hint {
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+body.letter-hidden .letter,
+body.letter-hidden .hint {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(14px) scale(0.985);
+}
+
 /* ---------------- Intro ---------------- */
 .intro {
   position: fixed;

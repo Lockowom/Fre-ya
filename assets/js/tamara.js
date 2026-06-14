@@ -10,7 +10,10 @@
   const hintEl = document.getElementById("hint");
   const toast = document.getElementById("toast");
   const drawCanvas = document.getElementById("drawCanvas");
+  const skyToggle = document.getElementById("skyToggle");
   let drawCtl = null;
+  let hasReal = false;     // ¿hay mensajes reales (no de respaldo)?
+  let letterShown = true;  // ¿se está mostrando la carta?
 
   // Mensajes de respaldo si aún no hay base de datos / mensajes.
   const FALLBACK = [
@@ -188,8 +191,26 @@
   }
 
   function next() {
-    if (typing || messages.length < 2) return;
+    if (!letterShown || typing || messages.length < 2) return;
     show(index + 1);
+  }
+
+  // Mostrar/ocultar la carta para disfrutar el fondo 3D.
+  function setLetter(visible) {
+    letterShown = visible;
+    document.body.classList.toggle("letter-hidden", !visible);
+    skyToggle.textContent = visible ? "✦" : "♥";
+    skyToggle.setAttribute("aria-label", visible ? "Ver el cielo" : "Ver la carta");
+    skyToggle.title = visible ? "Ver el cielo" : "Ver la carta";
+    if (visible) {
+      // al volver, re-renderiza el dibujo del mensaje actual si lo hay
+      const strokes = messages.length && window.FreyaDraw && window.FreyaDraw.normalize(messages[index].drawing);
+      if (strokes && drawCtl === null) { drawCanvas.hidden = false; drawCtl = window.FreyaDraw.render(drawCanvas, strokes); }
+    } else if (drawCtl) {
+      // al ocultar, detén la animación del dibujo para ahorrar recursos
+      drawCtl.stop();
+      drawCtl = null;
+    }
   }
 
   // ---------------- Carga de datos ----------------
@@ -197,14 +218,19 @@
     try {
       if (window.FreyaDB && window.FreyaDB.ready) {
         const data = await window.FreyaDB.list();
-        messages = data.length ? data : FALLBACK.map((b) => ({ body: b }));
+        hasReal = data.length > 0;
+        messages = hasReal ? data : FALLBACK.map((b) => ({ body: b }));
       } else {
+        hasReal = false;
         messages = FALLBACK.map((b) => ({ body: b }));
       }
     } catch (e) {
+      hasReal = false;
       messages = FALLBACK.map((b) => ({ body: b }));
     }
     show(0);
+    // Sin mensajes reales: arranca disfrutando del cosmos (carta oculta).
+    if (!hasReal) setLetter(false);
   }
 
   function showToast() {
@@ -225,10 +251,11 @@
       const wasLast = index === messages.length - 1;
       const grew = data.length > messages.length;
       messages = data;
+      hasReal = true;
       if (grew) {
         showToast();
-        // Lleva la atención al recuerdo recién llegado.
-        setTimeout(() => show(messages.length - 1), 800);
+        // Lleva la atención al recuerdo recién llegado (revela la carta si estaba oculta).
+        setTimeout(() => { setLetter(true); show(messages.length - 1); }, 800);
       } else if (wasLast) {
         renderDots();
       }
@@ -241,6 +268,7 @@
     setTimeout(() => {
       intro.style.display = "none";
       experience.hidden = false;
+      skyToggle.hidden = false;
       load();
       subscribe();
     }, 850);
@@ -248,4 +276,8 @@
 
   intro.addEventListener("click", begin);
   experience.addEventListener("click", next);
+  skyToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setLetter(!letterShown);
+  });
 })();
