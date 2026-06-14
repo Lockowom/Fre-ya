@@ -655,49 +655,106 @@
     sat.ringDust = dust;
   })();
 
-  // ===================== GALAXIA DE POLVO (C++ -> WebAssembly) =====================
-  // La física de miles de partículas se calcula en C++ compilado a WASM.
-  let wasm = null, wGeo = null, wGalaxy = null, wGalaxyMat = null;
-  (function loadWasm() {
-    if (!window.WebAssembly) return;
+  // ===================== AGUJERO NEGRO + PÚLSAR (JavaScript / 3D) =====================
+  const BH_POS = new THREE.Vector3(-74, 26, -60);
+  const BH_ROT = [1.35, 0.0, 0.5];
+  const blackhole = new THREE.Mesh(new THREE.SphereGeometry(3.2, 32, 32), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  blackhole.position.copy(BH_POS);
+  scene.add(blackhole);
+  const photonRing = new THREE.Mesh(
+    new THREE.TorusGeometry(3.7, 0.13, 16, 110),
+    new THREE.MeshBasicMaterial({ color: 0xfff0c8, transparent: true, blending: THREE.AdditiveBlending })
+  );
+  photonRing.position.copy(BH_POS);
+  photonRing.rotation.set(BH_ROT[0], BH_ROT[1], BH_ROT[2]);
+  scene.add(photonRing);
+  const bhHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture([[0, "rgba(255,225,160,0.6)"], [0.4, "rgba(255,130,60,0.22)"], [1, "rgba(0,0,0,0)"]]),
+    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  }));
+  bhHalo.scale.set(26, 26, 1);
+  bhHalo.position.copy(BH_POS);
+  scene.add(bhHalo);
+
+  const PULSAR_POS = new THREE.Vector3(50, 30, -46);
+  const pulsar = new THREE.Mesh(new THREE.SphereGeometry(0.7, 24, 24), new THREE.MeshBasicMaterial({ color: 0xcfeaff }));
+  pulsar.position.copy(PULSAR_POS);
+  scene.add(pulsar);
+  const pulsarGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture([[0, "rgba(210,235,255,0.9)"], [0.5, "rgba(120,180,255,0.4)"], [1, "rgba(80,140,255,0)"]]),
+    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  }));
+  pulsarGlow.scale.set(7, 7, 1);
+  pulsarGlow.position.copy(PULSAR_POS);
+  scene.add(pulsarGlow);
+  const beamGroup = new THREE.Group();
+  const beamMat = new THREE.MeshBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const beamUp = new THREE.Mesh(new THREE.ConeGeometry(2.4, 18, 24, 1, true), beamMat);
+  beamUp.position.y = 9;
+  const beamDn = beamUp.clone();
+  beamDn.rotation.x = Math.PI;
+  beamDn.position.y = -9;
+  beamGroup.add(beamUp, beamDn);
+  beamGroup.position.copy(PULSAR_POS);
+  beamGroup.rotation.z = 0.6;
+  scene.add(beamGroup);
+
+  // ===================== SISTEMAS DE PARTÍCULAS (C++ -> WebAssembly) =====================
+  // El mismo módulo WASM, instanciado 3 veces (cada instancia con su memoria),
+  // simula objetos distintos del universo según el modo.
+  const wSystems = [];
+  function makeParticleMat() {
+    return new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uTex: { value: starTex } },
+      vertexShader: `attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+        varying vec3 vColor; varying float vTw; uniform float uTime;
+        void main(){ vColor=aColor; vTw=0.55+0.45*sin(uTime*1.8+aPhase);
+          vec4 mv=modelViewMatrix*vec4(position,1.0);
+          gl_PointSize=aSize*(0.6+0.9*vTw)*(330.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+      fragmentShader: `uniform sampler2D uTex; varying vec3 vColor; varying float vTw;
+        void main(){ vec4 t=texture2D(uTex, gl_PointCoord); gl_FragColor=vec4(vColor*(0.55+0.85*vTw), t.a); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+  }
+  function makeSystem(mod, o) {
+    const e = new WebAssembly.Instance(mod, {}).exports;
+    e.init(o.count, o.rmin, o.rmax, (Math.random() * 1e9) >>> 0, o.mode);
+    e.step(0.016, 0.0);
+    const n = e.getCount();
+    const pos = new Float32Array(e.memory.buffer, e.getPositions(), n * 3);
+    const col = new Float32Array(e.memory.buffer, e.getColors(), n * 3);
+    const sizes = new Float32Array(n), phases = new Float32Array(n);
+    for (let i = 0; i < n; i++) { sizes[i] = (0.5 + Math.random() * 2.4) * (o.sizeScale || 1); phases[i] = Math.random() * 6.28; }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+    geo.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+    geo.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
+    const mat = makeParticleMat();
+    const points = new THREE.Points(geo, mat);
+    points.rotation.set(o.rot[0], o.rot[1], o.rot[2]);
+    points.position.set(o.pos[0], o.pos[1], o.pos[2]);
+    scene.add(points);
+    const sys = { e, geo, mat, points, interactive: !!o.interactive };
+    wSystems.push(sys);
+    return sys;
+  }
+  if (window.WebAssembly) {
     const coarse = (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || window.innerWidth < 820;
-    const count = coarse ? 7000 : 14000;
-    fetch("assets/wasm/particles.wasm?v=4")
+    fetch("assets/wasm/particles.wasm?v=5")
       .then((r) => r.arrayBuffer())
-      .then((b) => WebAssembly.instantiate(b, {}))
-      .then(({ instance }) => {
-        const e = instance.exports;
-        e.init(count, 30.0, 130.0, (Math.random() * 1e9) >>> 0);
-        e.step(0.016, 0.0);
-        const n = e.getCount();
-        const pos = new Float32Array(e.memory.buffer, e.getPositions(), n * 3);
-        const col = new Float32Array(e.memory.buffer, e.getColors(), n * 3);
-        const sizes = new Float32Array(n), phases = new Float32Array(n);
-        for (let i = 0; i < n; i++) { sizes[i] = 0.5 + Math.random() * 2.4; phases[i] = Math.random() * 6.28; }
-        wGeo = new THREE.BufferGeometry();
-        wGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-        wGeo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
-        wGeo.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
-        wGeo.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
-        wGalaxyMat = new THREE.ShaderMaterial({
-          uniforms: { uTime: { value: 0 }, uTex: { value: starTex } },
-          vertexShader: `attribute vec3 aColor; attribute float aSize; attribute float aPhase;
-            varying vec3 vColor; varying float vTw; uniform float uTime;
-            void main(){ vColor=aColor; vTw=0.55+0.45*sin(uTime*1.8+aPhase);
-              vec4 mv=modelViewMatrix*vec4(position,1.0);
-              gl_PointSize=aSize*(0.6+0.9*vTw)*(330.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
-          fragmentShader: `uniform sampler2D uTex; varying vec3 vColor; varying float vTw;
-            void main(){ vec4 t=texture2D(uTex, gl_PointCoord); gl_FragColor=vec4(vColor*(0.55+0.85*vTw), t.a); }`,
-          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-        });
-        wGalaxy = new THREE.Points(wGeo, wGalaxyMat);
-        wGalaxy.rotation.set(1.12, 0.0, 0.22);
-        scene.add(wGalaxy);
-        wasm = e;
-        console.log("[cosmos] galaxia C++/WASM activa:", n, "partículas");
+      .then((b) => WebAssembly.compile(b))
+      .then((mod) => {
+        // Galaxia espiral interactiva (envuelve el sistema)
+        makeSystem(mod, { count: coarse ? 7000 : 13000, rmin: 30, rmax: 130, mode: 0, sizeScale: 1.0, rot: [1.12, 0, 0.22], pos: [0, 0, 0], interactive: true });
+        // Disco de acreción del agujero negro
+        makeSystem(mod, { count: coarse ? 3000 : 6000, rmin: 4, rmax: 16, mode: 1, sizeScale: 1.3, rot: BH_ROT, pos: [BH_POS.x, BH_POS.y, BH_POS.z] });
+        // Cúmulo estelar 3D
+        makeSystem(mod, { count: coarse ? 2500 : 4500, rmin: 8, rmax: 20, mode: 2, sizeScale: 1.0, rot: [0, 0, 0], pos: [62, -20, -52] });
+        console.log("[cosmos] sistemas C++/WASM activos:", wSystems.length);
       })
       .catch(() => { /* sin WASM: la escena 3D sigue funcionando igual */ });
-  })();
+  }
 
   // ===================== INTERACCIÓN =====================
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -844,20 +901,32 @@
     if (planets[4] && planets[4].ringDust) planets[4].ringDust.rotation.z += dt * 0.05;
 
     // galaxia de polvo simulada en C++/WASM
-    if (wasm && wGeo) {
-      if (wGalaxy && pressed) {
-        galaxyPlane.normal.set(0, 1, 0).applyQuaternion(wGalaxy.quaternion).normalize();
-        ray.setFromCamera(ndc, camera);
-        if (ray.ray.intersectPlane(galaxyPlane, hitPt)) {
-          wGalaxy.worldToLocal(hitPt);
-          wasm.setAttractor(hitPt.x, hitPt.y, hitPt.z, 1.0);
-        } else { wasm.setAttractor(0, 0, 0, 0); }
-      } else {
-        wasm.setAttractor(0, 0, 0, 0);
+    // Agujero negro y púlsar
+    photonRing.rotation.z += dt * 0.25;
+    bhHalo.material.rotation += dt * 0.05;
+    beamGroup.rotation.y += dt * 3.5;            // el púlsar barre el cielo
+    const pp = 0.7 + 0.3 * Math.sin(t * 6.0);
+    pulsarGlow.scale.set(6 + pp * 3, 6 + pp * 3, 1);
+    beamMat.opacity = 0.18 + pp * 0.22;
+
+    // Sistemas de partículas C++/WASM
+    for (const sys of wSystems) {
+      if (sys.interactive) {
+        if (pressed) {
+          galaxyPlane.normal.set(0, 1, 0).applyQuaternion(sys.points.quaternion).normalize();
+          galaxyPlane.constant = -galaxyPlane.normal.dot(sys.points.position);
+          ray.setFromCamera(ndc, camera);
+          if (ray.ray.intersectPlane(galaxyPlane, hitPt)) {
+            sys.points.worldToLocal(hitPt);
+            sys.e.setAttractor(hitPt.x, hitPt.y, hitPt.z, 1.0);
+          } else { sys.e.setAttractor(0, 0, 0, 0); }
+        } else {
+          sys.e.setAttractor(0, 0, 0, 0);
+        }
       }
-      wasm.step(dt, t);
-      wGeo.attributes.position.needsUpdate = true;
-      if (wGalaxyMat) wGalaxyMat.uniforms.uTime.value = t;
+      sys.e.step(dt, t);
+      sys.geo.attributes.position.needsUpdate = true;
+      sys.mat.uniforms.uTime.value = t;
     }
 
     // cometa en órbita elíptica inclinada + cola apuntando lejos del sol
