@@ -703,6 +703,7 @@
   // El mismo módulo WASM, instanciado 3 veces (cada instancia con su memoria),
   // simula objetos distintos del universo según el modo.
   const wSystems = [];
+  let accretionSys = null, clusterSys = null;
   function makeParticleMat() {
     return new THREE.ShaderMaterial({
       uniforms: { uTime: { value: 0 }, uTex: { value: starTex } },
@@ -746,11 +747,12 @@
       .then((b) => WebAssembly.compile(b))
       .then((mod) => {
         // Galaxia espiral interactiva (envuelve el sistema)
-        makeSystem(mod, { count: coarse ? 7000 : 13000, rmin: 30, rmax: 130, mode: 0, sizeScale: 1.0, rot: [1.12, 0, 0.22], pos: [0, 0, 0], interactive: true });
+        makeSystem(mod, { count: coarse ? 7000 : 13000, rmin: 30, rmax: coarse ? 95 : 130, mode: 0, sizeScale: 1.0, rot: [1.12, 0, 0.22], pos: [0, 0, 0], interactive: true });
         // Disco de acreción del agujero negro
-        makeSystem(mod, { count: coarse ? 3000 : 6000, rmin: 4, rmax: 16, mode: 1, sizeScale: 1.3, rot: BH_ROT, pos: [BH_POS.x, BH_POS.y, BH_POS.z] });
+        accretionSys = makeSystem(mod, { count: coarse ? 3000 : 6000, rmin: 4, rmax: 16, mode: 1, sizeScale: 1.3, rot: BH_ROT, pos: [BH_POS.x, BH_POS.y, BH_POS.z] });
         // Cúmulo estelar 3D
-        makeSystem(mod, { count: coarse ? 2500 : 4500, rmin: 8, rmax: 20, mode: 2, sizeScale: 1.0, rot: [0, 0, 0], pos: [62, -20, -52] });
+        clusterSys = makeSystem(mod, { count: coarse ? 2500 : 4500, rmin: 8, rmax: 20, mode: 2, sizeScale: 1.0, rot: [0, 0, 0], pos: [62, -20, -52] });
+        placeScene(window.innerWidth / window.innerHeight);
         console.log("[cosmos] sistemas C++/WASM activos:", wSystems.length);
       })
       .catch(() => { /* sin WASM: la escena 3D sigue funcionando igual */ });
@@ -828,21 +830,36 @@
     }
   }
 
+  // Coloca los objetos grandes de forma simétrica alrededor del centro.
+  // En vertical, en columna (aprovecha la pantalla alta); en horizontal, en fila.
+  function placeScene(aspect) {
+    const portrait = aspect < 1;
+    const bh = portrait ? new THREE.Vector3(0, 34, -40) : new THREE.Vector3(-58, 18, -52);
+    const cl = portrait ? new THREE.Vector3(0, -34, -42) : new THREE.Vector3(58, -18, -52);
+    const pu = portrait ? new THREE.Vector3(26, 6, -34) : new THREE.Vector3(46, 24, -44);
+    BH_POS.copy(bh); PULSAR_POS.copy(pu);
+    blackhole.position.copy(bh); photonRing.position.copy(bh); bhHalo.position.copy(bh);
+    if (accretionSys) accretionSys.points.position.copy(bh);
+    if (clusterSys) clusterSys.points.position.copy(cl);
+    pulsar.position.copy(pu); pulsarGlow.position.copy(pu); beamGroup.position.copy(pu);
+  }
+
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     const aspect = w / h;
     renderer.setSize(w, h, false);
     // En vertical (móvil) ampliamos el campo de visión.
-    camera.fov = aspect < 0.8 ? 74 : aspect < 1.2 ? 64 : 55;
+    camera.fov = aspect < 0.8 ? 76 : aspect < 1.2 ? 66 : 55;
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
     if (composer) composer.setSize(w, h);
-    // Distancia que encuadra todo el sistema (radio ~38) en ambos ejes.
-    const R = 38;
+    placeScene(aspect);
+    // Radio a encuadrar: en vertical incluimos los objetos apilados (±~50).
+    const R = aspect < 1 ? 56 : 80;
     const tan = Math.tan((camera.fov * Math.PI) / 180 / 2);
     const fitW = R / (tan * Math.min(aspect, 3));
     const fitH = R / tan;
-    camDist = Math.min(Math.max(fitW, fitH) + 6, 170);
+    camDist = Math.min(Math.max(fitW, fitH) + 8, 240);
   }
   window.addEventListener("resize", resize);
   resize();
