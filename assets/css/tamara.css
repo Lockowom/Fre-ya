@@ -84,8 +84,39 @@ body {
 .sky-toggle:hover { transform: translateY(-2px); background: rgba(60, 15, 58, 0.6); }
 .sky-toggle:active { transform: scale(0.94); }
 
-/* Botón de viaje, apilado encima del de "ver el cielo" */
+/* Botones apilados encima del de "ver el cielo" */
 .tour-btn { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+.music-btn { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
+.music-btn.off { opacity: 0.5; }
+
+/* Puente cinematográfico entre capítulos */
+.chapter-fade {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 50%, rgba(8, 4, 14, 0.55), rgba(5, 2, 10, 0.92));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+.chapter-fade.show { opacity: 1; }
+.bridge-text {
+  font-family: "Cormorant Garamond", serif;
+  font-style: italic;
+  font-size: clamp(1.3rem, 5.5vw, 2rem);
+  color: var(--ink);
+  max-width: 18em;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 1s ease 0.3s, transform 1s ease 0.3s;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.9);
+}
+.bridge-text.show { opacity: 1; transform: none; }
 
 /* Panel de la historia (holograma legible) */
 .tour-caption {

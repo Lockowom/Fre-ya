@@ -87,11 +87,11 @@
           float h = d.y*0.5 + 0.5;
           vec3 top = vec3(0.05,0.015,0.07);
           vec3 horizon = vec3(0.21,0.05,0.20);
-          vec3 col = mix(horizon, top, smoothstep(0.1,0.7,h));
-          col += vec3(0.35,0.07,0.26) * pow(max(0.0, dot(d, normalize(vec3(0.6,-0.5,0.3)))), 3.0) * 0.6;
-          col += vec3(0.10,0.05,0.20) * pow(max(0.0, dot(d, normalize(vec3(-0.5,0.4,-0.4)))), 4.0);
+          vec3 col = mix(horizon, top, smoothstep(0.05,0.8,h)) * 0.75; // más negro (cine)
+          col += vec3(0.30,0.06,0.22) * pow(max(0.0, dot(d, normalize(vec3(0.6,-0.5,0.3)))), 4.0) * 0.35;
+          col += vec3(0.07,0.04,0.16) * pow(max(0.0, dot(d, normalize(vec3(-0.5,0.4,-0.4)))), 5.0) * 0.6;
           // polvo estelar muy tenue
-          col += vec3(0.04) * smoothstep(0.6,0.9, fbm(d*40.0));
+          col += vec3(0.03) * smoothstep(0.65,0.92, fbm(d*40.0));
           gl_FragColor = vec4(col, 1.0);
         }`,
       side: THREE.BackSide, depthWrite: false,
@@ -931,7 +931,7 @@
             vec3 c = vec3(r, g, b);
             // realce de saturación
             float l = dot(c, vec3(0.299,0.587,0.114));
-            c = mix(vec3(l), c, 1.2);
+            c = mix(vec3(l), c, 1.08);
             // viñeta
             float vig = smoothstep(0.9, 0.3, length(q));
             c *= mix(0.72, 1.0, vig);
@@ -1065,19 +1065,46 @@
   }
   function startTour() {
     tour.stops = buildStops();
-    tour.active = true; tour.idx = 0; tour.t = 0;
+    tour.active = true; tour.idx = 0; tour.t = 0; tour.transitioning = false;
     setCaption(0, tour.stops.length);
+    if (window.FreyaAudio) window.FreyaAudio.start();
   }
   function stopTour(finished) {
-    tour.active = false;
+    tour.active = false; tour.transitioning = false;
     if (capEl) { capEl.classList.remove("show"); setTimeout(() => { capEl.hidden = true; }, 600); }
+    hideBridge();
     window.dispatchEvent(new CustomEvent("freya-tour-end", { detail: { finished: !!finished } }));
   }
+  const BRIDGES = [
+    "No imaginaba cuánto cambiaría todo…",
+    "Y poco a poco, fuimos creciendo juntos…",
+    "Aprendimos a elegirnos cada día…",
+    "Y así llegamos a hoy, mirando al futuro…",
+  ];
+  const fadeEl = document.getElementById("chapterFade");
+  const bridgeEl = document.getElementById("bridgeText");
+  function showBridge(text) {
+    if (capEl) capEl.classList.remove("show");
+    if (fadeEl) fadeEl.classList.add("show");
+    if (bridgeEl) { bridgeEl.textContent = text; bridgeEl.classList.add("show"); }
+  }
+  function hideBridge() {
+    if (fadeEl) fadeEl.classList.remove("show");
+    if (bridgeEl) bridgeEl.classList.remove("show");
+  }
   function advanceTour() {
-    if (!tour.active) return;
+    if (!tour.active || tour.transitioning) return;
     if (tour.idx >= tour.stops.length - 1) { stopTour(true); return; }
-    tour.idx++; tour.t = 0;
-    setCaption(tour.idx, tour.stops.length);
+    tour.transitioning = true;
+    showBridge(BRIDGES[tour.idx] || "");
+    if (window.FreyaAudio) window.FreyaAudio.transition();
+    setTimeout(() => {
+      if (!tour.active) return;
+      tour.idx++; tour.t = 0;
+      setCaption(tour.idx, tour.stops.length);
+      hideBridge();
+      tour.transitioning = false;
+    }, 2600);
   }
   if (nextEl) nextEl.addEventListener("click", (e) => { e.stopPropagation(); advanceTour(); });
   window.FreyaCosmos = {

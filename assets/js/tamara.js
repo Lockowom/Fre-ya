@@ -13,6 +13,7 @@
   const skyToggle = document.getElementById("skyToggle");
   const letterMin = document.getElementById("letterMin");
   const tourBtn = document.getElementById("tourBtn");
+  const musicBtn = document.getElementById("musicBtn");
   let drawCtl = null;
   let hasReal = false;     // ¿hay mensajes reales (no de respaldo)?
   let letterShown = true;  // ¿se está mostrando la carta?
@@ -273,6 +274,7 @@
       experience.hidden = false;
       skyToggle.hidden = false;
       tourBtn.hidden = false;
+      musicBtn.hidden = false;
       load();
       subscribe();
     }, 850);
@@ -297,7 +299,23 @@
       setLetter(false);          // minimiza la carta para disfrutar el viaje
       window.FreyaCosmos.startTour();
     }
+    setTimeout(syncMusicBtn, 50);
   });
   // Al terminar (o salir de) el viaje, vuelve la carta.
   window.addEventListener("freya-tour-end", () => setLetter(true));
+
+  // Música ambiental (on/off).
+  function syncMusicBtn() {
+    const on = window.FreyaAudio && window.FreyaAudio.isEnabled();
+    musicBtn.textContent = on ? "🎵" : "🔇";
+    musicBtn.classList.toggle("off", !on);
+  }
+  musicBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (window.FreyaAudio) window.FreyaAudio.toggle();
+    syncMusicBtn();
+  });
+  // Si el viaje arranca la música, refleja el estado en el botón.
+  window.addEventListener("freya-tour-end", syncMusicBtn);
+  syncMusicBtn();
 })();
