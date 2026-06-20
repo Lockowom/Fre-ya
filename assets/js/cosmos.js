@@ -1008,7 +1008,7 @@
   // ===================== BUCLE =====================
   const clock = new THREE.Clock();
   let camAngle = 0;
-  let fpsAccum = 0, fpsFrames = 0, qualityLowered = false;
+  let fpsAccum = 0, fpsFrames = 0, qualityLowered = false, curPR = DPR;
   const desiredPos = new THREE.Vector3();
   const lookTarget = new THREE.Vector3(0, 0, 0);
   const lookCur = new THREE.Vector3(0, 0, 0);
@@ -1179,17 +1179,23 @@
     camera.position.y += Math.cos(t * 0.9) * camDist * 0.004;
     if (motes) motes.position.copy(camera.position); // el polvo envuelve la cámara
 
-    // calidad adaptativa: si va lento, aligera una vez
+    // ---- Resolución dinámica: ajusta el pixelRatio según los FPS ----
     fpsFrames++; fpsAccum += dt;
-    if (fpsAccum >= 2.0) {
+    if (fpsAccum >= 1.0) {
       const fps = fpsFrames / fpsAccum;
       fpsAccum = 0; fpsFrames = 0;
-      if (!qualityLowered && fps < 38) {
-        qualityLowered = true;
-        renderer.setPixelRatio(1);
+      let pr = curPR;
+      if (fps < 48) pr = Math.max(0.6, curPR - 0.12);
+      else if (fps > 57 && curPR < DPR) pr = Math.min(DPR, curPR + 0.06);
+      if (Math.abs(pr - curPR) > 0.001) {
+        curPR = pr;
+        renderer.setPixelRatio(curPR);
         if (composer) composer.setSize(window.innerWidth, window.innerHeight);
-        if (bloomPass) bloomPass.strength = 0.5;
-        console.log("[cosmos] modo ligero activado (" + fps.toFixed(0) + " fps)");
+      }
+      // si va realmente justo, baja el bloom una vez
+      if (!qualityLowered && fps < 34) {
+        qualityLowered = true;
+        if (bloomPass) bloomPass.strength = 0.6;
       }
     }
 
