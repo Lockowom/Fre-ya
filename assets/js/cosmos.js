@@ -13,11 +13,20 @@
   if (!window.THREE) { console.warn("[cosmos] THREE no cargó: se muestra el fondo 2D."); return; }
   console.log("[cosmos] THREE", THREE.REVISION, "— iniciando universo 3D");
 
+  // ---------- Perfil de calidad: móvil vs escritorio ----------
+  const IS_MOBILE = (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) || window.innerWidth < 900;
+  const Q = IS_MOBILE
+    ? { pixelRatio: Math.min(window.devicePixelRatio || 1, 1.25), composer: false, godRays: false,
+        galaxy: 5000, motes: 240, sparkles: 6, starsFar: 1600, starsNear: 500, antialias: false }
+    : { pixelRatio: Math.min(window.devicePixelRatio || 1, 2), composer: true, godRays: true,
+        galaxy: 16000, motes: 540, sparkles: 14, starsFar: 3000, starsNear: 900, antialias: true };
+  console.log("[cosmos] perfil:", IS_MOBILE ? "MÓVIL (ligero)" : "ESCRITORIO (completo)");
+
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: Q.antialias, alpha: true, powerPreference: "high-performance" });
   } catch (e) { return; }
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const DPR = Q.pixelRatio;
   renderer.setPixelRatio(DPR);
   renderer.setClearColor(0x120516, 1);
 
@@ -143,11 +152,14 @@
     }
     const t = new THREE.Texture(c); t.needsUpdate = true; return t;
   }
-  const godRays = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: raysTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55,
-  }));
-  godRays.scale.set(44, 44, 1);
-  scene.add(godRays);
+  let godRays = null;
+  if (Q.godRays) {
+    godRays = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: raysTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55,
+    }));
+    godRays.scale.set(44, 44, 1);
+    scene.add(godRays);
+  }
 
   // fulguraciones (flares) que laten cerca de la superficie
   const flareTex = radialTexture([[0, "rgba(255,230,180,0.9)"], [0.5, "rgba(255,140,60,0.4)"], [1, "rgba(255,120,60,0)"]]);
@@ -426,14 +438,14 @@
     });
     return { points: new THREE.Points(g, mat), mat };
   }
-  const starsFar = makeStars(3000, 1100, 3.0);
-  const starsNear = makeStars(900, 420, 5.0);
+  const starsFar = makeStars(Q.starsFar, 1100, 3.0);
+  const starsNear = makeStars(Q.starsNear, 420, 5.0);
   scene.add(starsFar.points, starsNear.points);
 
   // ===================== POLVO BRILLANTE FLOTANTE (cerca de la cámara) =====================
   let motesMat = null, motes = null;
   (() => {
-    const N = 540, spread = 64;
+    const N = Q.motes, spread = 64;
     const g = new THREE.BufferGeometry();
     const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), siz = new Float32Array(N), pha = new Float32Array(N);
     const tints = [[1, 1, 1], [1, 0.8, 0.92], [1, 0.92, 0.7], [0.85, 0.92, 1]];
@@ -479,7 +491,7 @@
   const sparkTex = sparkTexture();
   const sparkles = [];
   const sparkTints = [0xffffff, 0xffd9e6, 0xcfe2ff, 0xfff0c8];
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < Q.sparkles; i++) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({
       map: sparkTex, color: new THREE.Color(sparkTints[i % sparkTints.length]),
       blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
@@ -845,19 +857,14 @@
     return sys;
   }
   if (window.WebAssembly) {
-    const coarse = (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || window.innerWidth < 820;
     fetch("assets/wasm/particles.wasm?v=5")
       .then((r) => r.arrayBuffer())
       .then((b) => WebAssembly.compile(b))
       .then((mod) => {
         // Galaxia espiral interactiva (envuelve el sistema)
-        makeSystem(mod, { count: coarse ? 8000 : 16000, rmin: 30, rmax: coarse ? 95 : 130, mode: 0, sizeScale: 1.0, rot: [1.12, 0, 0.22], pos: [0, 0, 0], interactive: true });
-        if (SHOW.extraSystems) {
-          accretionSys = makeSystem(mod, { count: coarse ? 3000 : 6000, rmin: 4, rmax: 16, mode: 1, sizeScale: 1.3, rot: BH_ROT, pos: [BH_POS.x, BH_POS.y, BH_POS.z] });
-          clusterSys = makeSystem(mod, { count: coarse ? 2500 : 4500, rmin: 8, rmax: 20, mode: 2, sizeScale: 1.0, rot: [0, 0, 0], pos: [62, -20, -52] });
-        }
+        makeSystem(mod, { count: Q.galaxy, rmin: 30, rmax: IS_MOBILE ? 95 : 130, mode: 0, sizeScale: 1.0, rot: [1.12, 0, 0.22], pos: [0, 0, 0], interactive: true });
         placeScene(window.innerWidth / window.innerHeight);
-        console.log("[cosmos] sistemas C++/WASM activos:", wSystems.length);
+        console.log("[cosmos] sistema C++/WASM activo:", Q.galaxy, "partículas");
       })
       .catch(() => { /* sin WASM: la escena 3D sigue funcionando igual */ });
   }
@@ -891,7 +898,7 @@
 
   // ===================== POST-PROCESADO (bloom + grade) =====================
   let composer = null, bloomPass = null, gradePass = null;
-  if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
+  if (Q.composer && THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
     composer = new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
     bloomPass = new THREE.UnrealBloomPass(
@@ -1094,11 +1101,12 @@
   let envCaptured = false;
   function captureEnv() {
     planets.forEach((p) => (p.group.visible = false)); // evita auto-reflejos
-    const grv = godRays.visible; godRays.visible = false;
+    const grv = godRays ? godRays.visible : false;
+    if (godRays) godRays.visible = false;
     cubeCam.position.set(0, 0, 0);
     cubeCam.update(renderer, scene);
     planets.forEach((p) => (p.group.visible = true));
-    godRays.visible = grv;
+    if (godRays) godRays.visible = grv;
     planets.forEach((p) => {
       p.mat.uniforms.uEnv.value = cubeRT.texture; p.mat.uniforms.uEnvOn.value = 1;
       p.moons.forEach((m) => { m.mat.uniforms.uEnv.value = cubeRT.texture; m.mat.uniforms.uEnvOn.value = 1; });
@@ -1117,8 +1125,10 @@
     sunUniforms.uTime.value = t;
     sun.rotation.y += dt * 0.05;
     corona.material.rotation += dt * 0.02;
-    godRays.material.rotation += dt * 0.035;
-    godRays.scale.setScalar(44 + Math.sin(t * 0.7) * 3);
+    if (godRays) {
+      godRays.material.rotation += dt * 0.035;
+      godRays.scale.setScalar(44 + Math.sin(t * 0.7) * 3);
+    }
     const pulse = 30 + Math.sin(t * 1.3) * 1.5;
     corona.scale.set(pulse, pulse, 1);
     flares.forEach((fl) => {
