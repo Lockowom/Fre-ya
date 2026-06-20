@@ -175,6 +175,7 @@
     uniform vec3 uA; uniform vec3 uB; uniform vec3 uC;
     uniform float uTime; uniform float uSeed; uniform float uBands;
     uniform float uNight; uniform float uIce; uniform float uWater;
+    uniform samplerCube uEnv; uniform float uEnvOn;
     varying vec3 vWN; varying vec3 vP; varying vec3 vWP;
     void main(){
       vec3 p = normalize(vP);
@@ -218,6 +219,13 @@
         float dark = smoothstep(0.18,0.0,diff);
         float city = smoothstep(0.58,0.74, fbm(p*10.0+uSeed*1.7));
         lit += vec3(1.0,0.82,0.45)*city*dark*0.9;
+      }
+      // reflejos del entorno (HDRI espacial): sobre todo en el agua, con fresnel
+      if(uEnvOn > 0.5){
+        vec3 Rv = reflect(-V, N);
+        vec3 envc = textureCube(uEnv, Rv).rgb;
+        float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+        lit += envc * (0.20 + 0.7 * water) * (0.35 + fres);
       }
       // depth haze: los cuerpos lejanos pierden contraste y brillo
       float hz = clamp((length(cameraPosition - vWP) - 45.0) / 200.0, 0.0, 0.55);
@@ -264,6 +272,7 @@
         uA: { value: new THREE.Color(cfg.a) }, uB: { value: new THREE.Color(cfg.b) }, uC: { value: new THREE.Color(cfg.c) },
         uTime: { value: 0 }, uSeed: { value: Math.random() * 10 }, uBands: { value: cfg.bands || 0 },
         uNight: { value: cfg.night ? 1 : 0 }, uIce: { value: cfg.ice ? 1 : 0 }, uWater: { value: cfg.water ? 1 : 0 },
+        uEnv: { value: null }, uEnvOn: { value: 0 },
       },
       vertexShader: planetVert, fragmentShader: planetFrag,
     });
@@ -1013,10 +1022,40 @@
   const lookTarget = new THREE.Vector3(0, 0, 0);
   const lookCur = new THREE.Vector3(0, 0, 0);
   camera.position.set(0, camDist * 0.6, camDist * 3.0); // arranque lejano: vuelo de entrada
+
+  // Environment map estilo HDRI: capturamos el espacio real (estrellas, nebulosa,
+  // sol) en un cubemap y lo usamos para reflejos creíbles en los planetas.
+  const cubeRT = new THREE.WebGLCubeRenderTarget(256, {
+    format: THREE.RGBAFormat, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter,
+  });
+  const cubeCam = new THREE.CubeCamera(1, 3000, cubeRT);
+  // Vincula el cubemap (aún vacío) para que el sampler sea válido desde el inicio.
+  planets.forEach((p) => {
+    p.mat.uniforms.uEnv.value = cubeRT.texture;
+    p.moons.forEach((m) => { m.mat.uniforms.uEnv.value = cubeRT.texture; });
+  });
+  let envCaptured = false;
+  function captureEnv() {
+    planets.forEach((p) => (p.group.visible = false)); // evita auto-reflejos
+    const grv = godRays.visible; godRays.visible = false;
+    cubeCam.position.set(0, 0, 0);
+    cubeCam.update(renderer, scene);
+    planets.forEach((p) => (p.group.visible = true));
+    godRays.visible = grv;
+    planets.forEach((p) => {
+      p.mat.uniforms.uEnv.value = cubeRT.texture; p.mat.uniforms.uEnvOn.value = 1;
+      p.moons.forEach((m) => { m.mat.uniforms.uEnv.value = cubeRT.texture; m.mat.uniforms.uEnvOn.value = 1; });
+    });
+    envCaptured = true;
+    console.log("[cosmos] environment map capturado (reflejos PBR activos)");
+  }
+
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
+
+    if (!envCaptured && t > 1.5) captureEnv();
 
     sunUniforms.uTime.value = t;
     sun.rotation.y += dt * 0.05;
