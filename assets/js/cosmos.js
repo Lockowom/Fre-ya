@@ -16,10 +16,12 @@
   // ---------- Perfil de calidad: móvil vs escritorio ----------
   const IS_MOBILE = (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) || window.innerWidth < 900;
   const Q = IS_MOBILE
-    ? { pixelRatio: Math.min(window.devicePixelRatio || 1, 1.25), composer: false, godRays: false,
-        galaxy: 5000, motes: 240, sparkles: 6, starsFar: 1600, starsNear: 500, antialias: false }
-    : { pixelRatio: Math.min(window.devicePixelRatio || 1, 2), composer: true, godRays: true,
-        galaxy: 16000, motes: 540, sparkles: 14, starsFar: 3000, starsNear: 900, antialias: true };
+    ? { pixelRatio: 1.0, composer: false, godRays: false, antialias: false,
+        galaxy: 3500, motes: 130, sparkles: 4, starsFar: 1400, starsNear: 380,
+        seg: 32, clouds: false, auroras: false, ringDust: false, neb: 2 }
+    : { pixelRatio: Math.min(window.devicePixelRatio || 1, 2), composer: true, godRays: true, antialias: true,
+        galaxy: 16000, motes: 540, sparkles: 14, starsFar: 3000, starsNear: 900,
+        seg: 64, clouds: true, auroras: true, ringDust: true, neb: 4 };
   console.log("[cosmos] perfil:", IS_MOBILE ? "MÓVIL (ligero)" : "ESCRITORIO (completo)");
 
   let renderer;
@@ -259,7 +261,7 @@
 
   function atmosphere(radius, color) {
     return new THREE.Mesh(
-      new THREE.SphereGeometry(radius * 1.2, 48, 48),
+      new THREE.SphereGeometry(radius * 1.2, Math.max(24, Q.seg), Math.max(24, Q.seg)),
       new THREE.ShaderMaterial({
         uniforms: { uColor: { value: new THREE.Color(color) } },
         vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vWN; varying vec3 vWP;
@@ -303,18 +305,18 @@
     scene.add(pivot);
 
     const mat = makePlanetMaterial(cfg);
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, 64, 64), mat);
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, Q.seg, Q.seg), mat);
     mesh.rotation.z = cfg.tilt * 0.5;
     const group = new THREE.Group();
     group.add(mesh, atmosphere(cfg.r, cfg.atm));
 
     let cloudMat = null;
-    if (cfg.clouds) {
+    if (cfg.clouds && Q.clouds) {
       cloudMat = new THREE.ShaderMaterial({
         uniforms: { uTime: { value: 0 }, uSeed: { value: Math.random() * 10 } },
         vertexShader: planetVert, fragmentShader: cloudFrag, transparent: true, depthWrite: false,
       });
-      group.add(new THREE.Mesh(new THREE.SphereGeometry(cfg.r * 1.03, 48, 48), cloudMat));
+      group.add(new THREE.Mesh(new THREE.SphereGeometry(cfg.r * 1.03, Q.seg, Q.seg), cloudMat));
     }
 
     if (cfg.ring) {
@@ -552,7 +554,7 @@
     { sc: 520, x: -460, y: 220, z: -900, c: "#6f8bff", op: 0.34 },
     { sc: 360, x: -180, y: 210, z: -700, c: "#ff9ad0", op: 0.30 },
   ];
-  nebLayers.forEach((L) => {
+  nebLayers.slice(0, Q.neb).forEach((L) => {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
       map: nebTex, color: new THREE.Color(L.c),
       blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: L.op,
@@ -718,6 +720,7 @@
   // ===================== AURORAS POLARES (planeta tierra) =====================
   const auroraMats = [];
   (() => {
+    if (!Q.auroras) return;
     const earth = planets.find((p) => p.cfg.water) || planets[0];
     if (!earth) return;
     const r = earth.cfg.r;
@@ -749,6 +752,7 @@
 
   // ===================== POLVO EN LOS ANILLOS (Saturno) =====================
   (() => {
+    if (!Q.ringDust) return;
     const sat = planets.find((p) => p.cfg.ring);
     if (!sat) return;
     const N = 1200, inner = sat.cfg.r * 1.35, outer = sat.cfg.r * 2.3;
@@ -972,7 +976,11 @@
     const fitH = R / tan;
     camDist = Math.min(Math.max(fitW, fitH) + 8, 240);
   }
-  window.addEventListener("resize", resize);
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 150); // evita tirones por la barra del navegador móvil
+  });
   resize();
 
   // ===================== VIAJE POR EL UNIVERSO (historia narrada) =====================
@@ -1293,8 +1301,9 @@
     if (fpsAccum >= 1.0) {
       const fps = fpsFrames / fpsAccum;
       fpsAccum = 0; fpsFrames = 0;
+      window.__cosmosFPS = Math.round(fps);
       let pr = curPR;
-      if (fps < 48) pr = Math.max(0.6, curPR - 0.12);
+      if (fps < 48) pr = Math.max(IS_MOBILE ? 0.75 : 0.6, curPR - 0.12);
       else if (fps > 57 && curPR < DPR) pr = Math.min(DPR, curPR + 0.06);
       if (Math.abs(pr - curPR) > 0.001) {
         curPR = pr;
