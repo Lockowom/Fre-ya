@@ -122,6 +122,33 @@
   corona.scale.set(30, 30, 1);
   scene.add(corona);
 
+  // God rays: textura de rayos radiales que giran lento tras el sol.
+  function raysTexture() {
+    const s = 512, c = document.createElement("canvas"); c.width = c.height = s;
+    const x = c.getContext("2d");
+    x.translate(s / 2, s / 2);
+    const g = x.createRadialGradient(0, 0, 0, 0, 0, s / 2);
+    g.addColorStop(0, "rgba(255,225,170,0.5)");
+    g.addColorStop(1, "rgba(255,180,120,0)");
+    for (let i = 0; i < 90; i++) {
+      x.rotate((Math.PI * 2) / 90);
+      x.fillStyle = g;
+      const w = 0.004 + Math.random() * 0.03;
+      x.beginPath();
+      x.moveTo(0, 0);
+      x.lineTo(Math.cos(-w) * s, Math.sin(-w) * s);
+      x.lineTo(Math.cos(w) * s, Math.sin(w) * s);
+      x.closePath();
+      x.fill();
+    }
+    const t = new THREE.Texture(c); t.needsUpdate = true; return t;
+  }
+  const godRays = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: raysTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55,
+  }));
+  godRays.scale.set(44, 44, 1);
+  scene.add(godRays);
+
   // fulguraciones (flares) que laten cerca de la superficie
   const flareTex = radialTexture([[0, "rgba(255,230,180,0.9)"], [0.5, "rgba(255,140,60,0.4)"], [1, "rgba(255,120,60,0)"]]);
   const flares = [];
@@ -192,6 +219,9 @@
         float city = smoothstep(0.58,0.74, fbm(p*10.0+uSeed*1.7));
         lit += vec3(1.0,0.82,0.45)*city*dark*0.9;
       }
+      // depth haze: los cuerpos lejanos pierden contraste y brillo
+      float hz = clamp((length(cameraPosition - vWP) - 45.0) / 200.0, 0.0, 0.55);
+      lit = mix(lit, vec3(0.10,0.06,0.13), hz);
       gl_FragColor = vec4(lit,1.0);
     }`;
 
@@ -239,12 +269,11 @@
     });
   }
 
+  // Dirección artística: 3 planetas protagonistas, muy cuidados y bien espaciados.
   const PLANETS = [
-    { r: 0.9, dist: 9,  speed: 0.55, tilt: 0.15, a: 0x8a5a3c, b: 0xd9a066, c: 0xffe0b0, atm: 0xffb070 },
-    { r: 1.5, dist: 14, speed: 0.34, tilt: 0.40, a: 0x16407a, b: 0x2f8f5a, c: 0x9be7ff, atm: 0x6fc8ff, clouds: true, night: true, ice: true, water: true, moons: 1 }, // tierra
-    { r: 1.1, dist: 18, speed: 0.27, tilt: 0.50, a: 0x8f2f23, b: 0xc9603a, c: 0xffc28a, atm: 0xff8a6a, ice: true }, // marte
-    { r: 2.6, dist: 25, speed: 0.16, tilt: 0.20, a: 0xb98f5a, b: 0xe8c896, c: 0xfff0d0, atm: 0xf6dca0, bands: 1, moons: 2 }, // júpiter
-    { r: 2.0, dist: 34, speed: 0.11, tilt: 0.55, a: 0xc7b07a, b: 0xe6d6a8, c: 0xfff4d8, atm: 0xe9dcae, bands: 1, ring: true }, // saturno
+    { r: 1.8, dist: 16, speed: 0.26, tilt: 0.40, a: 0x16407a, b: 0x2f8f5a, c: 0x9be7ff, atm: 0x7fd0ff, clouds: true, night: true, ice: true, water: true, moons: 1 }, // mundo azul (héroe)
+    { r: 3.0, dist: 27, speed: 0.14, tilt: 0.22, a: 0xb98f5a, b: 0xe8c896, c: 0xfff0d0, atm: 0xf6dca0, bands: 1, moons: 2 },                                    // gigante gaseoso
+    { r: 2.4, dist: 38, speed: 0.09, tilt: 0.52, a: 0xc7b07a, b: 0xe6d6a8, c: 0xfff4d8, atm: 0xe9dcae, bands: 1, ring: true },                                   // mundo de anillos
   ];
 
   const planets = PLANETS.map((cfg) => {
@@ -317,6 +346,10 @@
 
     return { cfg, group, mesh, mat, cloudMat, moons, angle: Math.random() * Math.PI * 2 };
   });
+  const ringedPlanet = planets.find((p) => p.cfg.ring);
+
+  // Objetos retirados para una dirección más cinematográfica (menos = más).
+  const SHOW = { asteroids: false, comet: false, blackhole: false, pulsar: false, extraSystems: false };
 
   // ===================== CINTURÓN DE ASTEROIDES =====================
   let asteroidBelt;
@@ -340,8 +373,7 @@
       map: radialTexture([[0, "rgba(255,255,255,1)"], [0.5, "rgba(200,180,160,0.6)"], [1, "rgba(0,0,0,0)"]]),
     }));
     belt.userData.spin = 0.05;
-    scene.add(belt);
-    asteroidBelt = belt;
+    if (SHOW.asteroids) { scene.add(belt); asteroidBelt = belt; }
   })();
 
   // ===================== ESTRELLAS QUE TITILAN =====================
@@ -488,20 +520,26 @@
   galaxy.position.set(-520, 180, -1100);
   scene.add(galaxy);
 
-  // ===================== NEBULOSAS =====================
+  // ===================== UNA GRAN NEBULOSA (capas que forman un cuerpo) =====================
   const nebTex = radialTexture([[0, "rgba(255,150,205,0.55)"], [0.4, "rgba(150,90,220,0.22)"], [1, "rgba(60,30,90,0)"]]);
   const nebGroup = new THREE.Group();
-  const nebColors = ["#ff6fb5", "#9a6bff", "#5fb0ff", "#ff9a6f"];
-  for (let i = 0; i < 8; i++) {
+  const nebColors = ["#ff6fb5", "#b56bff", "#6f8bff", "#ff9ad0"];
+  // Núcleo dominante + algunas capas alrededor para darle volumen.
+  const nebLayers = [
+    { sc: 680, x: -360, y: 150, z: -820, c: "#c76bff", op: 0.42 },
+    { sc: 460, x: -250, y: 90, z: -760, c: "#ff6fb5", op: 0.40 },
+    { sc: 520, x: -460, y: 220, z: -900, c: "#6f8bff", op: 0.34 },
+    { sc: 360, x: -180, y: 210, z: -700, c: "#ff9ad0", op: 0.30 },
+  ];
+  nebLayers.forEach((L) => {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: nebTex, color: new THREE.Color(nebColors[i % nebColors.length]),
-      blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.5,
+      map: nebTex, color: new THREE.Color(L.c),
+      blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: L.op,
     }));
-    const sc = 90 + Math.random() * 160;
-    s.scale.set(sc, sc, 1);
-    s.position.set((Math.random() - 0.5) * 700, (Math.random() - 0.5) * 300, -250 - Math.random() * 500);
+    s.scale.set(L.sc, L.sc, 1);
+    s.position.set(L.x, L.y, L.z);
     nebGroup.add(s);
-  }
+  });
   scene.add(nebGroup);
 
   // ===================== COMETA CON COLA =====================
@@ -510,7 +548,7 @@
     blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
   }));
   comet.scale.set(5, 5, 1);
-  scene.add(comet);
+  if (SHOW.comet) scene.add(comet);
   const TAIL = 70;
   const tailGeo = new THREE.BufferGeometry();
   const tailPos = new Float32Array(TAIL * 3);
@@ -524,7 +562,7 @@
     fragmentShader: `uniform sampler2D uTex; varying float vA; void main(){ vec4 t=texture2D(uTex,gl_PointCoord); gl_FragColor=vec4(0.75,0.9,1.0,t.a*vA); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
-  scene.add(tail);
+  if (SHOW.comet) scene.add(tail);
   let cometAngle = Math.random() * 6.28;
   const cometTrail = [];
 
@@ -659,7 +697,7 @@
   // ===================== AURORAS POLARES (planeta tierra) =====================
   const auroraMats = [];
   (() => {
-    const earth = planets[1];
+    const earth = planets.find((p) => p.cfg.water) || planets[0];
     if (!earth) return;
     const r = earth.cfg.r;
     function cap(flip) {
@@ -690,7 +728,7 @@
 
   // ===================== POLVO EN LOS ANILLOS (Saturno) =====================
   (() => {
-    const sat = planets[4];
+    const sat = planets.find((p) => p.cfg.ring);
     if (!sat) return;
     const N = 1200, inner = sat.cfg.r * 1.35, outer = sat.cfg.r * 2.3;
     const g = new THREE.BufferGeometry();
@@ -721,33 +759,29 @@
   const BH_ROT = [1.35, 0.0, 0.5];
   const blackhole = new THREE.Mesh(new THREE.SphereGeometry(3.2, 32, 32), new THREE.MeshBasicMaterial({ color: 0x000000 }));
   blackhole.position.copy(BH_POS);
-  scene.add(blackhole);
   const photonRing = new THREE.Mesh(
     new THREE.TorusGeometry(3.7, 0.13, 16, 110),
     new THREE.MeshBasicMaterial({ color: 0xfff0c8, transparent: true, blending: THREE.AdditiveBlending })
   );
   photonRing.position.copy(BH_POS);
   photonRing.rotation.set(BH_ROT[0], BH_ROT[1], BH_ROT[2]);
-  scene.add(photonRing);
   const bhHalo = new THREE.Sprite(new THREE.SpriteMaterial({
     map: radialTexture([[0, "rgba(255,225,160,0.6)"], [0.4, "rgba(255,130,60,0.22)"], [1, "rgba(0,0,0,0)"]]),
     blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
   }));
   bhHalo.scale.set(26, 26, 1);
   bhHalo.position.copy(BH_POS);
-  scene.add(bhHalo);
+  if (SHOW.blackhole) scene.add(blackhole, photonRing, bhHalo);
 
   const PULSAR_POS = new THREE.Vector3(50, 30, -46);
   const pulsar = new THREE.Mesh(new THREE.SphereGeometry(0.7, 24, 24), new THREE.MeshBasicMaterial({ color: 0xcfeaff }));
   pulsar.position.copy(PULSAR_POS);
-  scene.add(pulsar);
   const pulsarGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: radialTexture([[0, "rgba(210,235,255,0.9)"], [0.5, "rgba(120,180,255,0.4)"], [1, "rgba(80,140,255,0)"]]),
     blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
   }));
   pulsarGlow.scale.set(7, 7, 1);
   pulsarGlow.position.copy(PULSAR_POS);
-  scene.add(pulsarGlow);
   const beamGroup = new THREE.Group();
   const beamMat = new THREE.MeshBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const beamUp = new THREE.Mesh(new THREE.ConeGeometry(2.4, 18, 24, 1, true), beamMat);
@@ -758,7 +792,7 @@
   beamGroup.add(beamUp, beamDn);
   beamGroup.position.copy(PULSAR_POS);
   beamGroup.rotation.z = 0.6;
-  scene.add(beamGroup);
+  if (SHOW.pulsar) scene.add(pulsar, pulsarGlow, beamGroup);
 
   // ===================== SISTEMAS DE PARTÍCULAS (C++ -> WebAssembly) =====================
   // El mismo módulo WASM, instanciado 3 veces (cada instancia con su memoria),
@@ -808,11 +842,11 @@
       .then((b) => WebAssembly.compile(b))
       .then((mod) => {
         // Galaxia espiral interactiva (envuelve el sistema)
-        makeSystem(mod, { count: coarse ? 7000 : 13000, rmin: 30, rmax: coarse ? 95 : 130, mode: 0, sizeScale: 1.0, rot: [1.12, 0, 0.22], pos: [0, 0, 0], interactive: true });
-        // Disco de acreción del agujero negro
-        accretionSys = makeSystem(mod, { count: coarse ? 3000 : 6000, rmin: 4, rmax: 16, mode: 1, sizeScale: 1.3, rot: BH_ROT, pos: [BH_POS.x, BH_POS.y, BH_POS.z] });
-        // Cúmulo estelar 3D
-        clusterSys = makeSystem(mod, { count: coarse ? 2500 : 4500, rmin: 8, rmax: 20, mode: 2, sizeScale: 1.0, rot: [0, 0, 0], pos: [62, -20, -52] });
+        makeSystem(mod, { count: coarse ? 8000 : 16000, rmin: 30, rmax: coarse ? 95 : 130, mode: 0, sizeScale: 1.0, rot: [1.12, 0, 0.22], pos: [0, 0, 0], interactive: true });
+        if (SHOW.extraSystems) {
+          accretionSys = makeSystem(mod, { count: coarse ? 3000 : 6000, rmin: 4, rmax: 16, mode: 1, sizeScale: 1.3, rot: BH_ROT, pos: [BH_POS.x, BH_POS.y, BH_POS.z] });
+          clusterSys = makeSystem(mod, { count: coarse ? 2500 : 4500, rmin: 8, rmax: 20, mode: 2, sizeScale: 1.0, rot: [0, 0, 0], pos: [62, -20, -52] });
+        }
         placeScene(window.innerWidth / window.innerHeight);
         console.log("[cosmos] sistemas C++/WASM activos:", wSystems.length);
       })
@@ -939,26 +973,21 @@
     if (lineEl) lineEl.textContent = stop.cap || "";
     requestAnimationFrame(() => capEl.classList.add("show"));
   }
+  // Narrativa: el recorrido cuenta una historia (inicio → recuerdo → lo superado → presente → futuro).
   function buildStops() {
     const s = [];
-    s.push({ kind: "obj", get: () => _v.set(0, 0, 0).clone(), dist: 16, dwell: 4.5, name: "El Sol", cap: "El centro de todo… como tú en mi vida." });
-    const names = ["Mercurio", "La Tierra", "Marte", "Júpiter", "Saturno"];
-    const caps = [
-      "Veloz, como mi corazón cuando te veo.",
-      "Nuestro hogar; aquí te encontré.",
-      "Rojo, como lo que enciendes en mí.",
-      "Enorme… pero menos que lo que siento por ti.",
-      "Con anillos, como la promesa que te haré.",
+    s.push({ kind: "obj", get: () => _v.set(0, 0, 0).clone(), dist: 17, dwell: 6, name: "El comienzo", cap: "Todo empezó el día que te conocí." });
+    const story = [
+      { name: "Nuestro recuerdo", cap: "El primer momento que guardé para siempre." },
+      { name: "Lo que superamos", cap: "Lo difícil nos hizo más fuertes, juntos." },
+      { name: "Aquí y ahora", cap: "El presente: tú y yo, en este instante." },
     ];
     planets.forEach((p, i) => s.push({
       kind: "planet",
       get: () => { p.group.getWorldPosition(_v); return _v.clone(); },
-      dist: p.cfg.r * 5 + 6, dwell: 4.5, name: names[i] || "Planeta", cap: caps[i] || "",
+      dist: p.cfg.r * 4.5 + 6, dwell: 6, name: story[i] ? story[i].name : "Planeta", cap: story[i] ? story[i].cap : "",
     }));
-    s.push({ kind: "obj", get: () => BH_POS.clone(), dist: 26, dwell: 4, name: "Agujero negro", cap: "Mi amor por ti no tiene fondo." });
-    s.push({ kind: "obj", get: () => (clusterSys ? clusterSys.points.position.clone() : _v.set(0, -34, -42).clone()), dist: 42, dwell: 4, name: "Cúmulo estelar", cap: "Miles de estrellas, y todas te miran a ti." });
-    s.push({ kind: "obj", get: () => PULSAR_POS.clone(), dist: 16, dwell: 3.5, name: "Púlsar", cap: "Late por ti, sin parar." });
-    s.push({ kind: "far", get: () => _v.set(0, 150, -640).clone(), dist: 240, dwell: 6, name: "Tu nombre", cap: "Lo escribí en las estrellas. ♥" });
+    s.push({ kind: "far", get: () => _v.set(0, 150, -640).clone(), dist: 240, dwell: 7, name: "Nuestro futuro", cap: "Escrito en las estrellas, contigo. ♥" });
     return s;
   }
   function startTour() {
@@ -992,6 +1021,8 @@
     sunUniforms.uTime.value = t;
     sun.rotation.y += dt * 0.05;
     corona.material.rotation += dt * 0.02;
+    godRays.material.rotation += dt * 0.035;
+    godRays.scale.setScalar(44 + Math.sin(t * 0.7) * 3);
     const pulse = 30 + Math.sin(t * 1.3) * 1.5;
     corona.scale.set(pulse, pulse, 1);
     flares.forEach((fl) => {
@@ -1040,7 +1071,7 @@
       const k = 0.85 + Math.sin(t * 1.3) * 0.15;
       sp.material.opacity = 0.55 * k;
     });
-    if (planets[4] && planets[4].ringDust) planets[4].ringDust.rotation.z += dt * 0.05;
+    if (ringedPlanet && ringedPlanet.ringDust) ringedPlanet.ringDust.rotation.z += dt * 0.05;
 
     // galaxia de polvo simulada en C++/WASM
     // Agujero negro y púlsar
@@ -1071,21 +1102,23 @@
       sys.mat.uniforms.uTime.value = t;
     }
 
-    // cometa en órbita elíptica inclinada + cola apuntando lejos del sol
-    cometAngle += dt * 0.22;
-    const cx = Math.cos(cometAngle) * 70, cz = Math.sin(cometAngle) * 48, cy = Math.sin(cometAngle * 0.7) * 22;
-    comet.position.set(cx, cy, cz);
-    cometTrail.unshift(new THREE.Vector3(cx, cy, cz));
-    if (cometTrail.length > TAIL) cometTrail.pop();
-    const away = comet.position.clone().normalize();
-    for (let i = 0; i < TAIL; i++) {
-      const base = cometTrail[Math.min(i, cometTrail.length - 1)] || comet.position;
-      const pos = base.clone().add(away.clone().multiplyScalar(i * 0.25));
-      tailPos[i * 3] = pos.x; tailPos[i * 3 + 1] = pos.y; tailPos[i * 3 + 2] = pos.z;
-      tailAlpha[i] = 1 - i / TAIL;
+    // cometa (oculto en la versión cinematográfica)
+    if (SHOW.comet) {
+      cometAngle += dt * 0.22;
+      const cx = Math.cos(cometAngle) * 70, cz = Math.sin(cometAngle) * 48, cy = Math.sin(cometAngle * 0.7) * 22;
+      comet.position.set(cx, cy, cz);
+      cometTrail.unshift(new THREE.Vector3(cx, cy, cz));
+      if (cometTrail.length > TAIL) cometTrail.pop();
+      const away = comet.position.clone().normalize();
+      for (let i = 0; i < TAIL; i++) {
+        const base = cometTrail[Math.min(i, cometTrail.length - 1)] || comet.position;
+        const pos = base.clone().add(away.clone().multiplyScalar(i * 0.25));
+        tailPos[i * 3] = pos.x; tailPos[i * 3 + 1] = pos.y; tailPos[i * 3 + 2] = pos.z;
+        tailAlpha[i] = 1 - i / TAIL;
+      }
+      tailGeo.attributes.position.needsUpdate = true;
+      tailGeo.attributes.aAlpha.needsUpdate = true;
     }
-    tailGeo.attributes.position.needsUpdate = true;
-    tailGeo.attributes.aAlpha.needsUpdate = true;
 
     // estrellas fugaces
     if (Math.random() < 0.022 && shooters.length < 5) spawnShooter();
@@ -1123,17 +1156,27 @@
       pointer.x += (pointer.tx - pointer.x) * 0.04;
       pointer.y += (pointer.ty - pointer.y) * 0.04;
       camAngle += dt * 0.02;
+      // micro-drift cinematográfico (suma de senos = ruido suave) + respiración
+      const dx = Math.sin(t * 0.13) + 0.5 * Math.sin(t * 0.31);
+      const dy = Math.sin(t * 0.11) + 0.5 * Math.sin(t * 0.27);
+      const breath = Math.sin(t * 0.45);
       desiredPos.set(
-        Math.sin(camAngle) * camDist * 0.12 + pointer.x * camDist * 0.16,
-        camDist * 0.13 + pointer.y * -camDist * 0.09,
-        camDist + Math.cos(camAngle) * camDist * 0.08
+        Math.sin(camAngle) * camDist * 0.12 + pointer.x * camDist * 0.16 + dx * camDist * 0.02,
+        camDist * 0.13 + pointer.y * -camDist * 0.09 + dy * camDist * 0.018 + breath * camDist * 0.01,
+        camDist + Math.cos(camAngle) * camDist * 0.08 + breath * camDist * 0.015
       );
-      lookTarget.set(0, 0, 0);
+      lookTarget.set(dx * 0.5, dy * 0.4, 0);
     }
     const camK = 1 - Math.exp(-dt * (tour.active ? 1.7 : 6));
     camera.position.lerp(desiredPos, camK);
     lookCur.lerp(lookTarget, camK);
+    // balanceo (roll) muy leve, como grabado desde una nave
+    const roll = Math.sin(t * 0.08) * 0.03 + Math.sin(t * 0.21) * 0.012;
+    camera.up.set(Math.sin(roll), Math.cos(roll), 0);
     camera.lookAt(lookCur);
+    // micro-vibración "handheld"
+    camera.position.x += Math.sin(t * 0.7) * camDist * 0.004;
+    camera.position.y += Math.cos(t * 0.9) * camDist * 0.004;
     if (motes) motes.position.copy(camera.position); // el polvo envuelve la cámara
 
     // calidad adaptativa: si va lento, aligera una vez
