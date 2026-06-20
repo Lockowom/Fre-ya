@@ -298,4 +298,6 @@
       window.FreyaCosmos.startTour();
     }
   });
+  // Al terminar (o salir de) el viaje, vuelve la carta.
+  window.addEventListener("freya-tour-end", () => setLetter(true));
 })();

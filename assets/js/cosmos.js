@@ -968,49 +968,106 @@
   window.addEventListener("resize", resize);
   resize();
 
-  // ===================== VIAJE POR EL UNIVERSO (recorrido cinematográfico) =====================
+  // ===================== VIAJE POR EL UNIVERSO (historia narrada) =====================
   const tour = { active: false, idx: 0, t: 0, stops: [] };
   const _v = new THREE.Vector3();
   const capEl = document.getElementById("tourCaption");
   const nameEl = document.getElementById("tourName");
   const lineEl = document.getElementById("tourCap");
-  function setCaption(stop) {
+  const progEl = document.getElementById("tourProgress");
+  const nextEl = document.getElementById("tourNext");
+
+  // Textos de la historia (escritos por él, para ella).
+  const STORY = [
+    {
+      name: "Cómo empezó todo",
+      text:
+"Era un niño en aquella época, sin imaginar que una simple imagen quedaría grabada en mi memoria durante tantos años.\n\n" +
+"Recuerdo verte pasar en tu moto. Había algo en ti que llamaba mi atención de una manera difícil de explicar. Parecías una persona simpática, alegre y hermosa. No sabía mucho de ti, pero había algo especial que despertaba mi curiosidad.\n\n" +
+"Con el tiempo llegó nuestra primera conversación. Quizás para el mundo fue algo simple, pero para mí fue suficiente para dejar una huella. Desde aquel momento tu nombre quedó guardado en algún rincón de mi memoria, esperando el día en que nuestros caminos volvieran a cruzarse de verdad.",
+    },
+    {
+      name: "Nuestros primeros recuerdos",
+      text:
+"Los primeros tiempos tienen algo mágico. Todo era sencillo y genuino.\n\n" +
+"Recuerdo nuestras conversaciones en el bus, en cualquier lugar y en cualquier momento. No importaba cuánto duraran, porque siempre parecían demasiado cortas. El tiempo tenía una extraña forma de acelerar cuando estaba contigo.\n\n" +
+"También recuerdo aquellos pequeños detalles que para otros podrían parecer insignificantes, como cuando te regalé una skin. No era el valor del regalo lo importante, sino la intención detrás de él. Era mi forma de hacerte sonreír y demostrarte que ya ocupabas un espacio especial en mis pensamientos.\n\n" +
+"Mirando hacia atrás, entiendo que esos momentos simples fueron construyendo algo mucho más grande de lo que ambos imaginábamos.",
+    },
+    {
+      name: "Superar nuestras diferencias",
+      text:
+"Nuestra historia no ha sido perfecta, y quizás ahí reside parte de su belleza.\n\n" +
+"Tenemos personalidades fuertes, formas distintas de pensar y maneras diferentes de enfrentar ciertas situaciones. Hubo momentos donde esas diferencias chocaron y nos hicieron pasar por tiempos difíciles.\n\n" +
+"Sin embargo, aprendimos algo fundamental: cuando existe amor y voluntad, las dificultades no son muros, sino puentes para entenderse mejor.\n\n" +
+"Cada conversación difícil, cada desacuerdo y cada momento de tensión nos enseñó algo nuevo sobre el otro. Aprendimos que escuchar es tan importante como hablar, y que comprender vale más que tener la razón.\n\n" +
+"No superamos nuestras diferencias porque desaparecieron, sino porque decidimos enfrentarlas juntos.",
+    },
+    {
+      name: "El presente, aquí y ahora",
+      text:
+"Hoy quiero disfrutar lo que tenemos.\n\n" +
+"Disfrutar tus abrazos cuando el día se vuelve pesado. Disfrutar tus besos que logran detener el ruido del mundo por un instante. Disfrutar tus caricias que transmiten una paz que pocas cosas pueden dar.\n\n" +
+"Pero también quiero disfrutar el crecimiento que estamos construyendo juntos. Ver cómo avanzamos, cómo aprendemos, cómo maduramos y cómo seguimos eligiéndonos día tras día.\n\n" +
+"Porque el amor no solo se encuentra en los grandes momentos; también vive en las rutinas, en las pequeñas conversaciones, en las risas compartidas y en la tranquilidad de saber que estamos uno al lado del otro.",
+    },
+    {
+      name: "Nuestro futuro entre las estrellas",
+      text:
+"Cuando pienso en el futuro, no sueño con riquezas imposibles ni con vidas perfectas. Sueño con algo mucho más valioso: vivir mejor juntos.\n\n" +
+"Construir un hogar lleno de tranquilidad. Cumplir nuestras metas paso a paso. Viajar, conocer nuevos lugares y crear nuevos recuerdos. Ver cómo nuestros esfuerzos se transforman en estabilidad y bienestar. Seguir tomándonos de la mano incluso cuando los años pasen.\n\n" +
+"Mi mayor deseo es que, cuando miremos hacia atrás dentro de muchos años, podamos decir que valió la pena cada esfuerzo, cada conversación difícil y cada paso que dimos juntos.\n\n" +
+"Y que nuestro amor, como una estrella en el cielo, siga brillando después de todas las tormentas, recordándonos siempre dónde empezó esta historia y por qué decidimos escribirla juntos. ♥",
+    },
+  ];
+
+  function setCaption(idx, total) {
     if (!capEl) return;
+    const stop = tour.stops[idx];
     capEl.hidden = false;
     capEl.classList.remove("show");
+    capEl.scrollTop = 0;
+    if (progEl) progEl.textContent = (idx + 1) + " / " + total;
     if (nameEl) nameEl.textContent = stop.name || "";
     if (lineEl) lineEl.textContent = stop.cap || "";
+    if (nextEl) nextEl.textContent = (idx >= total - 1) ? "Terminar ♥" : "Continuar →";
     requestAnimationFrame(() => capEl.classList.add("show"));
   }
-  // Narrativa: el recorrido cuenta una historia (inicio → recuerdo → lo superado → presente → futuro).
+
   function buildStops() {
     const s = [];
-    s.push({ kind: "obj", get: () => _v.set(0, 0, 0).clone(), dist: 17, dwell: 6, name: "El comienzo", cap: "Todo empezó el día que te conocí." });
-    const story = [
-      { name: "Nuestro recuerdo", cap: "El primer momento que guardé para siempre." },
-      { name: "Lo que superamos", cap: "Lo difícil nos hizo más fuertes, juntos." },
-      { name: "Aquí y ahora", cap: "El presente: tú y yo, en este instante." },
-    ];
+    // El Sol: el comienzo.
+    s.push({ kind: "obj", get: () => _v.set(0, 0, 0).clone(), dist: 17, name: STORY[0].name, cap: STORY[0].text });
+    // Los 3 planetas: recuerdos, diferencias, presente.
     planets.forEach((p, i) => s.push({
       kind: "planet",
       get: () => { p.group.getWorldPosition(_v); return _v.clone(); },
-      dist: p.cfg.r * 4.5 + 6, dwell: 6, name: story[i] ? story[i].name : "Planeta", cap: story[i] ? story[i].cap : "",
+      dist: p.cfg.r * 4.5 + 7, name: STORY[i + 1].name, cap: STORY[i + 1].text,
     }));
-    s.push({ kind: "far", get: () => _v.set(0, 150, -640).clone(), dist: 240, dwell: 7, name: "Nuestro futuro", cap: "Escrito en las estrellas, contigo. ♥" });
+    // El futuro: el nombre entre las estrellas.
+    s.push({ kind: "far", get: () => _v.set(0, 150, -640).clone(), dist: 240, name: STORY[4].name, cap: STORY[4].text });
     return s;
   }
   function startTour() {
     tour.stops = buildStops();
     tour.active = true; tour.idx = 0; tour.t = 0;
-    setCaption(tour.stops[0]);
+    setCaption(0, tour.stops.length);
   }
-  function stopTour() {
+  function stopTour(finished) {
     tour.active = false;
     if (capEl) { capEl.classList.remove("show"); setTimeout(() => { capEl.hidden = true; }, 600); }
+    window.dispatchEvent(new CustomEvent("freya-tour-end", { detail: { finished: !!finished } }));
   }
+  function advanceTour() {
+    if (!tour.active) return;
+    if (tour.idx >= tour.stops.length - 1) { stopTour(true); return; }
+    tour.idx++; tour.t = 0;
+    setCaption(tour.idx, tour.stops.length);
+  }
+  if (nextEl) nextEl.addEventListener("click", (e) => { e.stopPropagation(); advanceTour(); });
   window.FreyaCosmos = {
-    startTour, stopTour,
-    toggle: () => (tour.active ? stopTour() : startTour()),
+    startTour, stopTour, advance: advanceTour,
+    toggle: () => (tour.active ? stopTour(false) : startTour()),
     isActive: () => tour.active,
   };
 
@@ -1173,7 +1230,7 @@
     if (gradePass) gradePass.uniforms.uTime.value = t;
 
     if (tour.active && tour.stops.length) {
-      // Recorrido cinematográfico: vuela y se detiene en cada objeto.
+      // Historia: vuela al objeto y lo ORBITA suave mientras ella lee (avance manual).
       const stop = tour.stops[tour.idx];
       const pos = stop.get();
       lookTarget.copy(pos);
@@ -1185,11 +1242,14 @@
         desiredPos.set(pos.x + stop.dist * 0.25, pos.y + stop.dist * 0.35, pos.z + stop.dist);
       }
       tour.t += dt;
-      if (tour.t >= stop.dwell) {
-        tour.t = 0; tour.idx++;
-        if (tour.idx >= tour.stops.length) stopTour();
-        else setCaption(tour.stops[tour.idx]);
-      }
+      // órbita lenta alrededor del objeto (gira el offset alrededor del eje Y)
+      const off = desiredPos.clone().sub(lookTarget);
+      const a = tour.t * 0.12, ca = Math.cos(a), sa = Math.sin(a);
+      desiredPos.set(
+        lookTarget.x + off.x * ca - off.z * sa,
+        desiredPos.y + Math.sin(tour.t * 0.4) * stop.dist * 0.05,
+        lookTarget.z + off.x * sa + off.z * ca
+      );
     } else {
       // Vista libre: auto-órbita + parallax al tacto/inclinación.
       pointer.x += (pointer.tx - pointer.x) * 0.04;
