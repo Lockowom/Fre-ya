@@ -385,9 +385,70 @@
     });
     return { points: new THREE.Points(g, mat), mat };
   }
-  const starsFar = makeStars(2400, 1100, 3.0);
-  const starsNear = makeStars(800, 420, 5.0);
+  const starsFar = makeStars(3000, 1100, 3.0);
+  const starsNear = makeStars(900, 420, 5.0);
   scene.add(starsFar.points, starsNear.points);
+
+  // ===================== POLVO BRILLANTE FLOTANTE (cerca de la cámara) =====================
+  let motesMat = null, motes = null;
+  (() => {
+    const N = 540, spread = 64;
+    const g = new THREE.BufferGeometry();
+    const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), siz = new Float32Array(N), pha = new Float32Array(N);
+    const tints = [[1, 1, 1], [1, 0.8, 0.92], [1, 0.92, 0.7], [0.85, 0.92, 1]];
+    for (let i = 0; i < N; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * spread;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * spread;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * spread;
+      const c = tints[(Math.random() * tints.length) | 0]; col.set(c, i * 3);
+      siz[i] = 1.5 + Math.random() * 3.5; pha[i] = Math.random() * 6.28;
+    }
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+    g.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
+    g.setAttribute("aPhase", new THREE.BufferAttribute(pha, 1));
+    motesMat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uTex: { value: starTex } },
+      vertexShader: `attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+        varying vec3 vColor; varying float vTw; uniform float uTime;
+        void main(){ vColor=aColor; vTw=0.5+0.5*sin(uTime*2.5+aPhase);
+          vec3 p=position; p.x+=sin(uTime*0.3+aPhase)*2.2; p.y+=cos(uTime*0.25+aPhase)*2.2;
+          vec4 mv=modelViewMatrix*vec4(p,1.0);
+          gl_PointSize=aSize*(0.4+vTw)*(300.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+      fragmentShader: `uniform sampler2D uTex; varying vec3 vColor; varying float vTw;
+        void main(){ vec4 t=texture2D(uTex,gl_PointCoord); gl_FragColor=vec4(vColor*(0.5+vTw), t.a*0.9); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    motes = new THREE.Points(g, motesMat);
+    motes.frustumCulled = false;
+    scene.add(motes);
+  })();
+
+  // ===================== DESTELLOS EN CRUZ (diamantes) =====================
+  function sparkTexture() {
+    const s = 128, c = document.createElement("canvas"); c.width = c.height = s;
+    const x = c.getContext("2d");
+    const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.5, "rgba(255,255,255,0.18)"); g.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = g; x.fillRect(0, 0, s, s);
+    x.strokeStyle = "rgba(255,255,255,0.95)"; x.lineWidth = 2.5;
+    x.beginPath(); x.moveTo(s / 2, 3); x.lineTo(s / 2, s - 3); x.moveTo(3, s / 2); x.lineTo(s - 3, s / 2); x.stroke();
+    const t = new THREE.Texture(c); t.needsUpdate = true; return t;
+  }
+  const sparkTex = sparkTexture();
+  const sparkles = [];
+  const sparkTints = [0xffffff, 0xffd9e6, 0xcfe2ff, 0xfff0c8];
+  for (let i = 0; i < 14; i++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: sparkTex, color: new THREE.Color(sparkTints[i % sparkTints.length]),
+      blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+    }));
+    const r = 280 + Math.random() * 520, th = Math.random() * 6.28, ph = Math.acos(2 * Math.random() - 1);
+    sp.position.set(r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph) * 0.7, r * Math.sin(ph) * Math.sin(th));
+    sp.userData = { base: 16 + Math.random() * 24, ph: Math.random() * 6.28, sp: 1.4 + Math.random() * 2.2 };
+    scene.add(sp);
+    sparkles.push(sp);
+  }
 
   // ===================== GALAXIA ESPIRAL LEJANA =====================
   function galaxyTexture() {
@@ -792,9 +853,9 @@
     composer.addPass(new THREE.RenderPass(scene, camera));
     bloomPass = new THREE.UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.85,  // fuerza
-      0.55,  // radio
-      0.78   // umbral (solo brilla lo más luminoso)
+      1.15,  // fuerza (más brillo)
+      0.62,  // radio
+      0.66   // umbral (más elementos resplandecen)
     );
     composer.addPass(bloomPass);
 
@@ -943,7 +1004,7 @@
     planets.forEach((p) => {
       p.angle += dt * p.cfg.speed;
       p.group.position.set(Math.cos(p.angle) * p.cfg.dist, 0, Math.sin(p.angle) * p.cfg.dist);
-      p.mesh.rotation.y += dt * 0.3;
+      p.mesh.rotation.y += dt * 0.42;
       p.mat.uniforms.uTime.value = t;
       if (p.cloudMat) { p.cloudMat.uniforms.uTime.value = t; }
       p.moons.forEach((m) => { m.angle += dt * m.speed; m.pivot.rotation.y = m.angle; m.mat.uniforms.uTime.value = t; });
@@ -952,12 +1013,22 @@
     if (asteroidBelt) asteroidBelt.rotation.y += dt * asteroidBelt.userData.spin;
     starsFar.mat.uniforms.uTime.value = t;
     starsNear.mat.uniforms.uTime.value = t;
-    starsFar.points.rotation.y += dt * 0.004;
-    starsNear.points.rotation.y += dt * 0.01;
-    nebGroup.rotation.z += dt * 0.003;
-    galaxy.material.rotation += dt * 0.01;
-    heart.rotation.y += dt * 0.1;
+    starsFar.points.rotation.y += dt * 0.006;
+    starsNear.points.rotation.y += dt * 0.015;
+    nebGroup.rotation.z += dt * 0.006;
+    nebGroup.children.forEach((s, i) => { s.material.rotation += dt * (0.02 + i * 0.004); });
+    galaxy.material.rotation += dt * 0.015;
+    heart.rotation.y += dt * 0.15;
     heart.position.y = 16 + Math.sin(t * 0.5) * 1.5;
+
+    // polvo brillante alrededor de la cámara + destellos en cruz
+    if (motesMat) motesMat.uniforms.uTime.value = t;
+    sparkles.forEach((sp) => {
+      const k = 0.35 + 0.65 * Math.abs(Math.sin(t * sp.userData.sp + sp.userData.ph));
+      const sc = sp.userData.base * k;
+      sp.scale.set(sc, sc, 1);
+      sp.material.rotation += dt * 0.15;
+    });
 
     if (constMat) {
       constMat.uniforms.uTime.value = t;
@@ -1001,7 +1072,7 @@
     }
 
     // cometa en órbita elíptica inclinada + cola apuntando lejos del sol
-    cometAngle += dt * 0.18;
+    cometAngle += dt * 0.22;
     const cx = Math.cos(cometAngle) * 70, cz = Math.sin(cometAngle) * 48, cy = Math.sin(cometAngle * 0.7) * 22;
     comet.position.set(cx, cy, cz);
     cometTrail.unshift(new THREE.Vector3(cx, cy, cz));
@@ -1017,7 +1088,7 @@
     tailGeo.attributes.aAlpha.needsUpdate = true;
 
     // estrellas fugaces
-    if (Math.random() < 0.01 && shooters.length < 3) spawnShooter();
+    if (Math.random() < 0.022 && shooters.length < 5) spawnShooter();
     for (let i = shooters.length - 1; i >= 0; i--) {
       const s = shooters[i];
       s.life += dt;
@@ -1063,6 +1134,7 @@
     camera.position.lerp(desiredPos, camK);
     lookCur.lerp(lookTarget, camK);
     camera.lookAt(lookCur);
+    if (motes) motes.position.copy(camera.position); // el polvo envuelve la cámara
 
     // calidad adaptativa: si va lento, aligera una vez
     fpsFrames++; fpsAccum += dt;
