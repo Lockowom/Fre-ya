@@ -1329,16 +1329,19 @@
       const fps = fpsFrames / fpsAccum;
       fpsAccum = 0; fpsFrames = 0;
       window.__cosmosFPS = Math.round(fps);
-      let pr = curPR;
-      if (fps < 48) pr = Math.max(IS_MOBILE ? 0.75 : 0.6, curPR - 0.12);
-      else if (fps > 57 && curPR < DPR) pr = Math.min(DPR, curPR + 0.06);
-      if (Math.abs(pr - curPR) > 0.001) {
-        curPR = pr;
-        renderer.setPixelRatio(curPR);
-        renderer.setSize(window.innerWidth, window.innerHeight, false); // re-sincroniza el búfer del canvas
-        if (composer && composer.setPixelRatio) composer.setPixelRatio(curPR);
+      // La resolución dinámica solo se usa SIN post-procesado (móvil), para no
+      // desincronizar el composer con el búfer del canvas (causaba el "esquinado").
+      if (!composer) {
+        let pr = curPR;
+        if (fps < 48) pr = Math.max(0.75, curPR - 0.12);
+        else if (fps > 57 && curPR < DPR) pr = Math.min(DPR, curPR + 0.06);
+        if (Math.abs(pr - curPR) > 0.001) {
+          curPR = pr;
+          renderer.setPixelRatio(curPR);
+          renderer.setSize(window.innerWidth, window.innerHeight, false);
+        }
       }
-      // si va realmente justo, baja el bloom una vez
+      // si va justo y hay bloom, baja su fuerza una vez
       if (!qualityLowered && fps < 34) {
         qualityLowered = true;
         if (bloomPass) bloomPass.strength = 0.6;
