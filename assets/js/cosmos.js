@@ -1335,9 +1335,8 @@
       if (Math.abs(pr - curPR) > 0.001) {
         curPR = pr;
         renderer.setPixelRatio(curPR);
-        // mantener el post-procesado sincronizado con el nuevo pixelRatio
+        renderer.setSize(window.innerWidth, window.innerHeight, false); // re-sincroniza el búfer del canvas
         if (composer && composer.setPixelRatio) composer.setPixelRatio(curPR);
-        else if (composer) composer.setSize(window.innerWidth, window.innerHeight);
       }
       // si va realmente justo, baja el bloom una vez
       if (!qualityLowered && fps < 34) {
