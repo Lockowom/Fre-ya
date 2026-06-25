@@ -1163,7 +1163,7 @@
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
 
-    if (!envCaptured && t > 1.5) captureEnv();
+    if (!envCaptured && t > 1.5 && Q.composer) captureEnv();
 
     sunUniforms.uTime.value = t;
     sun.rotation.y += dt * 0.05;
@@ -1331,28 +1331,16 @@
     camera.position.y += Math.cos(t * 0.9) * camDist * 0.004;
     if (motes) motes.position.copy(camera.position); // el polvo envuelve la cámara
 
-    // ---- Resolución dinámica: ajusta el pixelRatio según los FPS ----
+    // ---- Medición de FPS (sin tocar el pixelRatio en caliente, para no recortar) ----
     fpsFrames++; fpsAccum += dt;
     if (fpsAccum >= 1.0) {
       const fps = fpsFrames / fpsAccum;
       fpsAccum = 0; fpsFrames = 0;
       window.__cosmosFPS = Math.round(fps);
-      // La resolución dinámica solo se usa SIN post-procesado (móvil), para no
-      // desincronizar el composer con el búfer del canvas (causaba el "esquinado").
-      if (!composer) {
-        let pr = curPR;
-        if (fps < 48) pr = Math.max(0.75, curPR - 0.12);
-        else if (fps > 57 && curPR < DPR) pr = Math.min(DPR, curPR + 0.06);
-        if (Math.abs(pr - curPR) > 0.001) {
-          curPR = pr;
-          renderer.setPixelRatio(curPR);
-          renderer.setSize(window.innerWidth, window.innerHeight, false);
-        }
-      }
-      // si va justo y hay bloom, baja su fuerza una vez
-      if (!qualityLowered && fps < 34) {
+      // si va muy justo y hay bloom, baja su fuerza una sola vez (seguro, no redimensiona)
+      if (!qualityLowered && fps < 34 && bloomPass) {
         qualityLowered = true;
-        if (bloomPass) bloomPass.strength = 0.6;
+        bloomPass.strength = 0.6;
       }
     }
 
