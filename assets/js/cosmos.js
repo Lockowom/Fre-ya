@@ -967,7 +967,11 @@
     camera.fov = aspect < 0.8 ? 76 : aspect < 1.2 ? 66 : 55;
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
-    if (composer) composer.setSize(w, h);
+    if (composer) {
+      // garantiza que el post-procesado use SIEMPRE el mismo pixelRatio que el renderer
+      if (composer.setPixelRatio) composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(w, h);
+    }
     placeScene(aspect);
     // Radio a encuadrar: en vertical incluimos los objetos apilados (±~50).
     const R = aspect < 1 ? 56 : 80;
@@ -981,7 +985,11 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(resize, 150); // evita tirones por la barra del navegador móvil
   });
+  window.addEventListener("orientationchange", () => setTimeout(resize, 200));
+  window.addEventListener("load", () => setTimeout(resize, 200));
   resize();
+  setTimeout(resize, 300);
+  setTimeout(resize, 1200);
 
   // ===================== VIAJE POR EL UNIVERSO (historia narrada) =====================
   const tour = { active: false, idx: 0, t: 0, stops: [] };
